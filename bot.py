@@ -1,4 +1,5 @@
 import logging
+from telegram import BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
 from database import create_tables
@@ -22,6 +23,22 @@ logger = logging.getLogger(__name__)
 
 # Глобальный обработчик транзакций, используется в различных функциях
 transaction_handler = EnhancedTransactionHandler()
+
+
+async def set_bot_commands(application: Application) -> None:
+    """Register bot commands for the user interface."""
+    commands = [
+        BotCommand("start", "Начало работы"),
+        BotCommand("help", "Справка"),
+        BotCommand("categories", "Категории"),
+        BotCommand("stats", "Статистика"),
+        BotCommand("limits", "Лимиты"),
+        BotCommand("export", "Экспорт"),
+        BotCommand("edit", "Редактировать"),
+        BotCommand("settings", "Настройки"),
+    ]
+
+    await application.bot.set_my_commands(commands)
 
 
 async def handle_callback(update, context):
@@ -69,7 +86,12 @@ def main() -> None:
     """Запуск бота"""
     create_tables()
     
-    application = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
+    application = (
+        Application.builder()
+        .token(config.TELEGRAM_BOT_TOKEN)
+        .post_init(set_bot_commands)
+        .build()
+    )
     
     # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start_command))
