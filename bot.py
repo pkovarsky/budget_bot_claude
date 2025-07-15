@@ -20,6 +20,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Глобальный обработчик транзакций, используется в различных функциях
+transaction_handler = EnhancedTransactionHandler()
+
 
 async def handle_callback(update, context):
     """Общий обработчик callback-кнопок"""
@@ -67,7 +70,6 @@ def main() -> None:
     create_tables()
     
     application = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
-    transaction_handler = EnhancedTransactionHandler()
     
     # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start_command))

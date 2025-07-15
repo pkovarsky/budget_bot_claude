@@ -183,7 +183,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         user = db.query(User).filter(User.telegram_id == user_id).first()
         language = user.language if user else "ru"
         
-        help_text = f\"\"\"
+        help_text = f"""
 {get_message('help_title', language)}
 
 **{get_message('transactions_section', language)}**
@@ -209,7 +209,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 • Отправьте фото чека для автоматического добавления расходов
 • ИИ распознает сумму, валюту и категоризирует покупку
 • Поддерживаются четкие фото и документы
-        \"\"\"
+        """
         await update.message.reply_text(help_text, parse_mode='Markdown')
         
     finally:
