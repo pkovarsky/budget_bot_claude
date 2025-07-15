@@ -138,10 +138,23 @@ async def handle_name_setup(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if query.data.startswith("setup_name_"):
         user_id = int(query.data.split('_')[2])
         context.user_data['setting_up_name'] = user_id
-        
+
+        keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="setup_back")]]
         await query.edit_message_text(
-            "👤 Введите ваше имя (до 50 символов):"
+            "👤 Введите ваше имя (до 50 символов):",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
+        return
+    if query.data == "setup_back":
+        db = get_db_session()
+        try:
+            user = db.query(User).filter(User.telegram_id == query.from_user.id).first()
+            language = user.language if user else "ru"
+            await ask_for_name(query, user, language)
+        finally:
+            db.close()
+        context.user_data.pop('setting_up_name', None)
+        return
 
 
 async def handle_name_input_setup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -100,13 +100,16 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
             
         elif data == "settings_name":
             # Запросить ввод имени
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]]
             await query.edit_message_text(
-                get_message("enter_name", user.language)
+                get_message("enter_name", user.language),
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
             context.user_data['setting_name'] = True
-            
+
         elif data == "settings_back":
             # Вернуться к настройкам
+            context.user_data.pop('setting_name', None)
             await settings_command(update, context)
             
     finally:

@@ -74,8 +74,10 @@ async def handle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         elif data.startswith("edit_amount_"):
             # Изменение суммы
             transaction_id = int(data.split("_")[2])
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="edit_back")]]
             await query.edit_message_text(
-                get_message("enter_new_amount", user.language)
+                get_message("enter_new_amount", user.language),
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
             context.user_data['editing_transaction'] = transaction_id
             return
@@ -83,6 +85,10 @@ async def handle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             # Удаление транзакции
             transaction_id = int(data.split("_")[2])
             await delete_transaction(query, user, transaction_id, db)
+            return
+        elif data == "edit_back":
+            context.user_data.pop('editing_transaction', None)
+            await edit_command(update, context)
             return
         else:
             return

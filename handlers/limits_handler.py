@@ -145,10 +145,12 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 await query.edit_message_text("Категория не найдена.")
                 return
             
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
             await query.edit_message_text(
                 f"📝 **Установка лимита для '{category.name}'**\n\n"
                 "Отправьте сумму лимита с валютой, например:\n"
                 "`500 EUR` или `300 USD`",
+                reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
             
@@ -205,6 +207,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             )
             
         elif data == "limits_back":
+            context.user_data.pop('waiting_for_limit', None)
             # Возвращаемся к главному меню лимитов
             limits = db.query(Limit).filter(Limit.user_id == user.id).all()
             
