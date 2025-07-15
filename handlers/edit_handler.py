@@ -30,7 +30,7 @@ async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            f"{get_message('edit_transactions', user.language)}\\n\\n{get_message('select_period', user.language)}",
+            f"{get_message('edit_transactions', user.language)}\n\n{get_message('select_period', user.language)}",
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
@@ -95,7 +95,7 @@ async def handle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         
         if not transactions:
             await query.edit_message_text(
-                f"{period_name}\\n\\n{get_message('no_transactions', user.language)}",
+                f"{period_name}\n\n{get_message('no_transactions', user.language)}",
                 parse_mode='Markdown'
             )
             return
@@ -125,7 +125,7 @@ async def handle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await query.edit_message_text(
-            f"{period_name}\\n\\n{get_message('select_transaction', user.language)}",
+            f"{period_name}\n\n{get_message('select_transaction', user.language)}",
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
@@ -153,9 +153,9 @@ async def show_transaction_edit_options(query, user, transaction_id: int, db):
     date_str = transaction.created_at.strftime("%d.%m.%Y %H:%M")
     
     info_text = (
-        f"{type_emoji} **{amount_str}**\\n"
-        f"📁 {category.name if category else 'Unknown'}\\n"
-        f"📝 {transaction.description}\\n"
+        f"{type_emoji} **{amount_str}**\n"
+        f"📁 {category.name if category else 'Unknown'}\n"
+        f"📝 {transaction.description}\n"
         f"📅 {date_str}"
     )
     

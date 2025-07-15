@@ -29,7 +29,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            "📊 **Статистика**\\n\\n"
+            "📊 **Статистика**\n\n"
             "Выберите период для показа статистики:",
             reply_markup=reply_markup,
             parse_mode='Markdown'
@@ -80,7 +80,7 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
-                f"📊 **{period_name}**\\n\\nНет транзакций за этот период.",
+                f"📊 **{period_name}**\n\nНет транзакций за этот период.",
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
@@ -113,7 +113,7 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
                     category_stats[category.name][currency] += abs(transaction.amount)
         
         # Формируем текст ответа
-        text = f"📊 **{period_name}**\\n\\n"
+        text = f"📊 **{period_name}**\n\n"
         
         # Общая статистика по валютам
         for currency, data in currencies.items():
@@ -122,14 +122,14 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
             balance = income - expenses
             balance_emoji = "💚" if balance >= 0 else "❤️"
             
-            text += f"**{currency}:**\\n"
-            text += f"💰 Доходы: {income:.2f}\\n"
-            text += f"💸 Расходы: {expenses:.2f}\\n"
-            text += f"{balance_emoji} Баланс: {balance:.2f}\\n\\n"
+            text += f"**{currency}:**\n"
+            text += f"💰 Доходы: {income:.2f}\n"
+            text += f"💸 Расходы: {expenses:.2f}\n"
+            text += f"{balance_emoji} Баланс: {balance:.2f}\n\n"
         
         # Топ категорий расходов
         if category_stats:
-            text += "**🏷️ Топ категорий расходов:**\\n"
+            text += "**🏷️ Топ категорий расходов:**\n"
             
             # Сортируем категории по общей сумме расходов
             category_totals = []
@@ -144,7 +144,7 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 currency_texts = []
                 for currency, amount in currencies_data.items():
                     currency_texts.append(f"{amount:.2f} {currency}")
-                text += ", ".join(currency_texts) + "\\n"
+                text += ", ".join(currency_texts) + "\n"
         
         keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="stats_back")]]
         reply_markup = InlineKeyboardMarkup(keyboard)

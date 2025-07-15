@@ -35,7 +35,7 @@ async def categories_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            "📁 **Управление категориями**\\n\\n"
+            "📁 **Управление категориями**\n\n"
             "Выберите категорию для просмотра или добавьте новую:",
             reply_markup=reply_markup,
             parse_mode='Markdown'
@@ -60,7 +60,7 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
         
         if data == "cat_add":
             await query.edit_message_text(
-                "📝 **Добавление новой категории**\\n\\n"
+                "📝 **Добавление новой категории**\n\n"
                 "Отправьте название новой категории:"
             )
             context.user_data['waiting_for_category'] = True
@@ -109,10 +109,10 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
-                f"📁 **{category.name}**\\n\\n"
-                f"💸 Потрачено: {spent_sum:.2f} EUR\\n"
-                f"💰 Получено: {earned_sum:.2f} EUR\\n"
-                f"📊 {limit_text}\\n\\n"
+                f"📁 **{category.name}**\n\n"
+                f"💸 Потрачено: {spent_sum:.2f} EUR\n"
+                f"💰 Получено: {earned_sum:.2f} EUR\n"
+                f"📊 {limit_text}\n\n"
                 f"Транзакций: {len(total_spent + total_earned)}",
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
@@ -171,7 +171,7 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
-                "📁 **Управление категориями**\\n\\n"
+                "📁 **Управление категориями**\n\n"
                 "Выберите категорию для просмотра или добавьте новую:",
                 reply_markup=reply_markup,
                 parse_mode='Markdown'

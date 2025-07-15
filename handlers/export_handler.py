@@ -90,9 +90,9 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_document(
             document=excel_buffer.getvalue(),
             filename=filename,
-            caption=f"📊 **Экспорт данных**\\n\\n"
-                    f"Файл содержит все ваши транзакции и статистику.\\n"
-                    f"Количество транзакций: {len(transactions)}\\n"
+            caption=f"📊 **Экспорт данных**\n\n"
+                    f"Файл содержит все ваши транзакции и статистику.\n"
+                    f"Количество транзакций: {len(transactions)}\n"
                     f"Дата экспорта: {current_date}",
             parse_mode='Markdown'
         )

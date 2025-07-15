@@ -35,8 +35,8 @@ async def limits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
-            "💳 **Управление лимитами**\\n\\n"
-            "Лимиты помогают контролировать расходы по категориям.\\n"
+            "💳 **Управление лимитами**\n\n"
+            "Лимиты помогают контролировать расходы по категориям.\n"
             "Вы получите уведомление при превышении 80% и 100% лимита.",
             reply_markup=reply_markup,
             parse_mode='Markdown'
@@ -70,7 +70,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 )
                 return
             
-            message = "📋 **Ваши лимиты:**\\n\\n"
+            message = "📋 **Ваши лимиты:**\n\n"
             
             for limit in limits:
                 category = db.query(Category).filter(Category.id == limit.category_id).first()
@@ -92,9 +92,9 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 
                 status_emoji = "🔴" if percentage >= 100 else "🟡" if percentage >= 80 else "🟢"
                 
-                message += f"{status_emoji} **{category.name}**\\n"
-                message += f"   Лимит: {limit.amount} {limit.currency}\\n"
-                message += f"   Потрачено: {total_spent:.2f} {limit.currency} ({percentage:.1f}%)\\n\\n"
+                message += f"{status_emoji} **{category.name}**\n"
+                message += f"   Лимит: {limit.amount} {limit.currency}\n"
+                message += f"   Потрачено: {total_spent:.2f} {limit.currency} ({percentage:.1f}%)\n\n"
             
             keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -127,7 +127,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             else:
                 keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="limits_back")])
                 await query.edit_message_text(
-                    "📝 **Добавление лимита**\\n\\n"
+                    "📝 **Добавление лимита**\n\n"
                     "Выберите категорию для установки лимита:",
                     reply_markup=InlineKeyboardMarkup(keyboard),
                     parse_mode='Markdown'
@@ -145,8 +145,8 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 return
             
             await query.edit_message_text(
-                f"📝 **Установка лимита для '{category.name}'**\\n\\n"
-                "Отправьте сумму лимита с валютой, например:\\n"
+                f"📝 **Установка лимита для '{category.name}'**\n\n"
+                "Отправьте сумму лимита с валютой, например:\n"
                 "`500 EUR` или `10000 RUB` или `300 USD`",
                 parse_mode='Markdown'
             )
@@ -175,7 +175,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="limits_back")])
             
             await query.edit_message_text(
-                "🗑 **Удаление лимита**\\n\\n"
+                "🗑 **Удаление лимита**\n\n"
                 "Выберите лимит для удаления:",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
@@ -220,8 +220,8 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
-                "💳 **Управление лимитами**\\n\\n"
-                "Лимиты помогают контролировать расходы по категориям.\\n"
+                "💳 **Управление лимитами**\n\n"
+                "Лимиты помогают контролировать расходы по категориям.\n"
                 "Вы получите уведомление при превышении 80% и 100% лимита.",
                 reply_markup=reply_markup,
                 parse_mode='Markdown'

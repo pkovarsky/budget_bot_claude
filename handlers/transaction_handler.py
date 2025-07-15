@@ -40,8 +40,8 @@ class TransactionHandler:
             transaction_data = parse_transaction(text)
             if not transaction_data:
                 await update.message.reply_text(
-                    "Не удалось распознать операцию. 🤔\\n\\n"
-                    "Используйте формат: '35 евро продукты' или '+2000 евро зарплата'\\n"
+                    "Не удалось распознать операцию. 🤔\n\n"
+                    "Используйте формат: '35 евро продукты' или '+2000 евро зарплата'\n"
                     "Отправьте /help для получения справки."
                 )
                 return
@@ -71,10 +71,10 @@ class TransactionHandler:
             
             operation_type = "💰 Доход" if is_income else "💸 Расход"
             await update.message.reply_text(
-                f"✅ {operation_type} добавлен!\\n\\n"
-                f"Сумма: {amount} {currency}\\n"
-                f"Категория: {category.name}\\n"
-                f"Описание: {description}\\n"
+                f"✅ {operation_type} добавлен!\n\n"
+                f"Сумма: {amount} {currency}\n"
+                f"Категория: {category.name}\n"
+                f"Описание: {description}\n"
                 f"{warning_msg}"
             )
             
@@ -154,7 +154,7 @@ class TransactionHandler:
                     f"{total_spent:.2f}/{limit.amount:.2f} {currency}"
                 )
         
-        return "\\n".join(warning_messages)
+        return "\n".join(warning_messages)
 
     async def handle_new_category(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка добавления новой категории"""
@@ -205,7 +205,7 @@ class TransactionHandler:
         result = parse_amount_and_currency(text)
         if not result:
             await update.message.reply_text(
-                "Неверный формат. Укажите сумму и валюту, например:\\n"
+                "Неверный формат. Укажите сумму и валюту, например:\n"
                 "`500 EUR` или `10000 RUB` или `300 USD`",
                 parse_mode='Markdown'
             )
@@ -255,8 +255,8 @@ class TransactionHandler:
             db.commit()
             
             await update.message.reply_text(
-                f"✅ Лимит установлен!\\n\\n"
-                f"Категория: {category.name}\\n"
+                f"✅ Лимит установлен!\n\n"
+                f"Категория: {category.name}\n"
                 f"Лимит: {amount} {currency}"
             )
             

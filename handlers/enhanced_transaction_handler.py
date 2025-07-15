@@ -53,8 +53,8 @@ class EnhancedTransactionHandler:
             transaction_data = parse_transaction(text)
             if not transaction_data:
                 await update.message.reply_text(
-                    f"{get_message('transaction_error', user.language)}\\n\\n"
-                    f"{get_message('transaction_format_help', user.language)}\\n"
+                    f"{get_message('transaction_error', user.language)}\n\n"
+                    f"{get_message('transaction_format_help', user.language)}\n"
                     "Отправьте /help для получения справки.",
                     parse_mode='Markdown'
                 )
@@ -65,7 +65,7 @@ class EnhancedTransactionHandler:
             # Удаляем RUB из поддерживаемых валют
             if currency == 'RUB':
                 await update.message.reply_text(
-                    f"❌ Валюта RUB больше не поддерживается.\\n"
+                    f"❌ Валюта RUB больше не поддерживается.\n"
                     f"Поддерживаемые валюты: {get_message('supported_currencies', user.language)}",
                     parse_mode='Markdown'
                 )
@@ -136,7 +136,7 @@ class EnhancedTransactionHandler:
         
         # Сообщение с предлагаемой категорией
         message_text = (
-            f"{get_message('suggest_category', user.language, category=suggested_category)}\\n\\n"
+            f"{get_message('suggest_category', user.language, category=suggested_category)}\n\n"
             f"{get_message('category_question', user.language)}"
         )
         
@@ -202,11 +202,11 @@ class EnhancedTransactionHandler:
             operation_type = get_message("income_added", user.language) if transaction_data['is_income'] else get_message("expense_added", user.language)
             
             response_text = (
-                f"✅ {operation_type}\\n\\n"
-                f"👤 {name}, транзакция сохранена:\\n"
-                f"{get_message('amount', user.language)}: {transaction_data['amount']} {transaction_data['currency']}\\n"
-                f"{get_message('category', user.language)}: {category.name}\\n"
-                f"{get_message('description', user.language)}: {transaction_data['description']}\\n"
+                f"✅ {operation_type}\n\n"
+                f"👤 {name}, транзакция сохранена:\n"
+                f"{get_message('amount', user.language)}: {transaction_data['amount']} {transaction_data['currency']}\n"
+                f"{get_message('category', user.language)}: {category.name}\n"
+                f"{get_message('description', user.language)}: {transaction_data['description']}\n"
                 f"{warning_msg}"
             )
             
@@ -256,7 +256,7 @@ class EnhancedTransactionHandler:
                     f"{total_spent:.2f}/{limit.amount:.2f} {currency}"
                 )
         
-        return "\\n".join(warning_messages)
+        return "\n".join(warning_messages)
 
     async def handle_new_category(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка добавления новой категории"""
@@ -311,7 +311,7 @@ class EnhancedTransactionHandler:
         result = parse_amount_and_currency(text)
         if not result:
             await update.message.reply_text(
-                "Неверный формат. Укажите сумму и валюту, например:\\n"
+                "Неверный формат. Укажите сумму и валюту, например:\n"
                 "`500 EUR` или `300 USD`",
                 parse_mode='Markdown'
             )
@@ -322,7 +322,7 @@ class EnhancedTransactionHandler:
         # Проверяем, что это не RUB
         if currency == 'RUB':
             await update.message.reply_text(
-                "❌ Валюта RUB больше не поддерживается.\\n"
+                "❌ Валюта RUB больше не поддерживается.\n"
                 "Поддерживаемые валюты: EUR, USD",
                 parse_mode='Markdown'
             )
@@ -372,8 +372,8 @@ class EnhancedTransactionHandler:
             
             name = user.name or "друг"
             await update.message.reply_text(
-                f"✅ {name}, лимит установлен!\\n\\n"
-                f"Категория: {category.name}\\n"
+                f"✅ {name}, лимит установлен!\n\n"
+                f"Категория: {category.name}\n"
                 f"Лимит: {amount} {currency}",
                 parse_mode='Markdown'
             )

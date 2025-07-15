@@ -24,7 +24,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             # Существующий пользователь
             name = user.name or "друг"
             await update.message.reply_text(
-                f"{get_message('welcome_back', user.language, name=name)}\\n\\n"
+                f"{get_message('welcome_back', user.language, name=name)}\n\n"
                 f"{get_message('help_commands', user.language)}"
             )
     finally:
@@ -45,9 +45,9 @@ async def show_language_selection(update: Update, user_id: int, username: str) -
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "🌍 Добро пожаловать в Budget Bot!\\n"
-        "Welcome to Budget Bot!\\n"
-        "Ласкаво просимо до Budget Bot!\\n\\n"
+        "🌍 Добро пожаловать в Budget Bot!\n"
+        "Welcome to Budget Bot!\n"
+        "Ласкаво просимо до Budget Bot!\n\n"
         "Выберите язык / Choose language / Оберіть мову:",
         reply_markup=reply_markup,
         parse_mode='Markdown'
@@ -87,8 +87,8 @@ async def handle_language_setup(update: Update, context: ContextTypes.DEFAULT_TY
         
         # Приветствие на выбранном языке
         welcome_text = (
-            f"{get_message('welcome', language, name='друг')}\\n\\n"
-            f"{get_message('start_description', language)}\\n\\n"
+            f"{get_message('welcome', language, name='друг')}\n\n"
+            f"{get_message('start_description', language)}\n\n"
             f"{get_message('help_commands', language)}"
         )
         
@@ -164,7 +164,7 @@ async def handle_name_input_setup(update: Update, context: ContextTypes.DEFAULT_
             db.commit()
             
             await update.message.reply_text(
-                f"✅ Приятно познакомиться, {name}!\\n\\n"
+                f"✅ Приятно познакомиться, {name}!\n\n"
                 f"Настройка завершена. Используйте /help для просмотра команд.",
                 parse_mode='Markdown'
             )

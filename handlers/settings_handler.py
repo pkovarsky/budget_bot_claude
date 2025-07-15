@@ -38,8 +38,8 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         current_name = user.name or "Не указано"
         
         settings_text = (
-            f"{get_message('settings', user.language)}\\n\\n"
-            f"🌍 {get_message('language_settings', user.language)}: {current_lang}\\n"
+            f"{get_message('settings', user.language)}\n\n"
+            f"🌍 {get_message('language_settings', user.language)}: {current_lang}\n"
             f"👤 {get_message('name_settings', user.language)}: {current_name}"
         )
         
