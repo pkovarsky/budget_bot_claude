@@ -1,0 +1,13 @@
+[build]
+builder = "DOCKERFILE"
+buildCommand = "echo 'Building with Docker'"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[environment]
+DATABASE_PATH = "/app/data/budget.db"
+PYTHONUNBUFFERED = "1"
