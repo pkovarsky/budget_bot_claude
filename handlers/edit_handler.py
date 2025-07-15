@@ -74,15 +74,47 @@ async def handle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         elif data.startswith("edit_amount_"):
             # Изменение суммы
             transaction_id = int(data.split("_")[2])
-            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="edit_back")]]
+            keyboard = [[InlineKeyboardButton("❌ Отмена", callback_data=f"edit_transaction_{transaction_id}")]]
             await query.edit_message_text(
-                get_message("enter_new_amount", user.language),
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                f"{get_message('enter_new_amount', user.language)}\n\n"
+                f"💡 Или отправьте /cancel для отмены",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
             )
             context.user_data['editing_transaction'] = transaction_id
             return
         elif data.startswith("delete_transaction_"):
-            # Удаление транзакции
+            # Удаление транзакции - запрос подтверждения
+            transaction_id = int(data.split("_")[2])
+            
+            transaction = db.query(Transaction).filter(
+                Transaction.id == transaction_id,
+                Transaction.user_id == user.id
+            ).first()
+            
+            if not transaction:
+                await query.edit_message_text("Транзакция не найдена.")
+                return
+                
+            # Показываем подтверждение удаления
+            keyboard = [
+                [InlineKeyboardButton("🗑 Да, удалить", callback_data=f"delete_confirm_{transaction_id}")],
+                [InlineKeyboardButton("❌ Отмена", callback_data=f"edit_transaction_{transaction_id}")]
+            ]
+            
+            await query.edit_message_text(
+                f"⚠️ **Подтверждение удаления**\n\n"
+                f"Вы уверены, что хотите удалить транзакцию?\n\n"
+                f"📝 {transaction.description}\n"
+                f"💰 {transaction.amount} {transaction.currency}\n\n"
+                f"Это действие нельзя отменить.",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            return
+            
+        elif data.startswith("delete_confirm_"):
+            # Подтвержденное удаление транзакции
             transaction_id = int(data.split("_")[2])
             await delete_transaction(query, user, transaction_id, db)
             return
@@ -198,11 +230,22 @@ async def delete_transaction(query, user, transaction_id: int, db):
         await query.edit_message_text("Транзакция не найдена.")
         return
     
+    # Сохраняем информацию о транзакции для сообщения
+    description = transaction.description
+    amount = transaction.amount
+    currency = transaction.currency
+    
     db.delete(transaction)
     db.commit()
     
+    keyboard = [[InlineKeyboardButton("🔙 К редактированию", callback_data="edit_back")]]
     await query.edit_message_text(
-        f"✅ {get_message('transaction_deleted', user.language)}"
+        f"✅ **Транзакция удалена**\n\n"
+        f"📝 {description}\n"
+        f"💰 {amount} {currency}\n\n"
+        f"Транзакция успешно удалена.",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='Markdown'
     )
 
 

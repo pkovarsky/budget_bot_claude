@@ -1,10 +1,15 @@
+#!/usr/bin/env python3
+"""
+Запуск бота с системой уведомлений
+"""
+import asyncio
 import logging
 from telegram import BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
 from database import create_tables
 from handlers.start_handler import (start_command, help_command, handle_language_setup, 
-                                     handle_name_setup, handle_name_input_setup, handle_help_callback)
+                                     handle_name_setup, handle_name_input_setup)
 from handlers.enhanced_transaction_handler import EnhancedTransactionHandler
 from handlers.categories_handler import categories_command, handle_categories_callback
 from handlers.stats_handler import stats_command, handle_stats_callback, handle_charts_callback, handle_stats_back
@@ -25,9 +30,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Глобальный обработчик транзакций, используется в различных функциях
+# Глобальный обработчик транзакций
 transaction_handler = EnhancedTransactionHandler()
-
 
 async def set_bot_commands(application: Application) -> None:
     """Register bot commands for the user interface."""
@@ -46,7 +50,6 @@ async def set_bot_commands(application: Application) -> None:
 
     await application.bot.set_my_commands(commands)
 
-
 async def handle_callback(update, context):
     """Общий обработчик callback-кнопок"""
     query = update.callback_query
@@ -59,10 +62,6 @@ async def handle_callback(update, context):
         await handle_language_setup(update, context)
     elif data.startswith("setup_name_") or data == "setup_skip_name" or data == "setup_back":
         await handle_name_setup(update, context)
-    
-    # Обработка интерактивной справки
-    elif data.startswith("help_"):
-        await handle_help_callback(update, context)
     
     # Обработка выбора категории для транзакций
     elif data.startswith("select_cat_") or data == "select_cancel" or data == "create_new_category":
@@ -120,11 +119,12 @@ async def handle_callback(update, context):
     elif data.startswith("settings_") or data.startswith("set_lang_"):
         await handle_settings_callback(update, context)
 
-
-def main() -> None:
-    """Запуск бота"""
+async def main() -> None:
+    """Запуск бота с системой уведомлений"""
+    # Создание таблиц БД
     create_tables()
     
+    # Создание приложения
     application = (
         Application.builder()
         .token(config.TELEGRAM_BOT_TOKEN)
@@ -156,8 +156,36 @@ def main() -> None:
     # Обработчик текстовых сообщений (должен быть последним)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, transaction_handler.handle_message))
     
-    application.run_polling()
-
+    # Создание планировщика уведомлений
+    scheduler = NotificationScheduler(application.bot)
+    
+    # Запуск бота и планировщика
+    logger.info("Запуск бота и планировщика уведомлений...")
+    
+    async with application:
+        await application.initialize()
+        await application.start()
+        
+        # Запуск планировщика в фоновом режиме
+        scheduler_task = asyncio.create_task(scheduler.start())
+        
+        # Запуск бота
+        await application.updater.start_polling()
+        
+        try:
+            # Ожидание завершения
+            await asyncio.gather(
+                application.updater.idle(),
+                scheduler_task
+            )
+        except KeyboardInterrupt:
+            logger.info("Получен сигнал остановки")
+        finally:
+            # Остановка планировщика
+            await scheduler.stop()
+            await application.updater.stop()
+            await application.stop()
+            await application.shutdown()
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

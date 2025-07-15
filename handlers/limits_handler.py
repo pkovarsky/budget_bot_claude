@@ -145,11 +145,14 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 await query.edit_message_text("Категория не найдена.")
                 return
             
-            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
+            keyboard = [
+                [InlineKeyboardButton("❌ Отмена", callback_data="limits_add")]
+            ]
             await query.edit_message_text(
                 f"📝 **Установка лимита для '{category.name}'**\n\n"
                 "Отправьте сумму лимита с валютой, например:\n"
-                "`500 EUR` или `300 USD`",
+                "`500 EUR` или `300 USD`\n\n"
+                "💡 Или отправьте /cancel для отмены",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
@@ -172,7 +175,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 category = db.query(Category).filter(Category.id == limit.category_id).first()
                 keyboard.append([InlineKeyboardButton(
                     f"🗑 {category.name} ({limit.amount} {limit.currency})",
-                    callback_data=f"limits_delete_{limit.id}"
+                    callback_data=f"limits_delete_confirm_{limit.id}"
                 )])
             
             keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="limits_back")])
@@ -184,8 +187,35 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode='Markdown'
             )
             
-        elif data.startswith("limits_delete_"):
-            limit_id = int(data.split("_")[2])
+        elif data.startswith("limits_delete_confirm_"):
+            limit_id = int(data.split("_")[3])
+            limit = db.query(Limit).filter(
+                Limit.id == limit_id,
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                await query.edit_message_text("Лимит не найден.")
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
+            
+            # Показываем подтверждение удаления
+            keyboard = [
+                [InlineKeyboardButton("🗑 Да, удалить", callback_data=f"limits_delete_final_{limit_id}")],
+                [InlineKeyboardButton("❌ Отмена", callback_data="limits_delete")]
+            ]
+            
+            await query.edit_message_text(
+                f"⚠️ **Подтверждение удаления**\n\n"
+                f"Вы уверены, что хотите удалить лимит для категории '{category.name}'?\n\n"
+                f"Лимит: {limit.amount} {limit.currency}",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
+        elif data.startswith("limits_delete_final_"):
+            limit_id = int(data.split("_")[3])
             limit = db.query(Limit).filter(
                 Limit.id == limit_id,
                 Limit.user_id == user.id
@@ -200,10 +230,12 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             db.delete(limit)
             db.commit()
             
-            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
+            keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="limits_back")]]
             await query.edit_message_text(
-                f"✅ Лимит для категории '{category.name}' удален.",
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                f"✅ **Лимит удален**\n\n"
+                f"Лимит для категории '{category.name}' успешно удален.",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
             )
             
         elif data == "limits_back":

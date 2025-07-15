@@ -5,7 +5,8 @@ from telegram.ext import ContextTypes
 import asyncio
 
 from database import get_db_session, User, Category, Transaction
-from openai_service import OpenAIService
+from services.openai_service import OpenAIService
+from services.category_memory_service import CategoryMemoryService
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             
             # Обрабатываем чек через OpenAI
             openai_service = OpenAIService()
+            memory_service = CategoryMemoryService()
             transactions = await openai_service.process_receipt_photo(
                 bytes(image_data), 
                 category_names
@@ -83,6 +85,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 saved_transactions.append(transaction)
             
             db.commit()
+            
+            # Запоминаем связи описаний с категориями для всех транзакций
+            for transaction in saved_transactions:
+                memory_service.remember_category(
+                    user_id=user.id,
+                    description=transaction.description,
+                    category_id=transaction.category_id,
+                    confidence=0.8  # Немного меньше уверенности для автоматически распознанных
+                )
             
             # Формируем ответ пользователю
             if len(saved_transactions) == 1:
@@ -157,6 +168,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             
             # Обрабатываем чек через OpenAI
             openai_service = OpenAIService()
+            memory_service = CategoryMemoryService()
             transactions = await openai_service.process_receipt_photo(
                 bytes(image_data), 
                 category_names
@@ -197,6 +209,15 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 saved_transactions.append(transaction)
             
             db.commit()
+            
+            # Запоминаем связи описаний с категориями для всех транзакций
+            for transaction in saved_transactions:
+                memory_service.remember_category(
+                    user_id=user.id,
+                    description=transaction.description,
+                    category_id=transaction.category_id,
+                    confidence=0.8  # Немного меньше уверенности для автоматически распознанных
+                )
             
             # Формируем ответ пользователю
             if len(saved_transactions) == 1:

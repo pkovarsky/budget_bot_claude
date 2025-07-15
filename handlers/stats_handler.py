@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from database import get_db_session, User, Category, Transaction
+from services.chart_service import ChartService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,8 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             [InlineKeyboardButton("📅 Сегодня", callback_data="stats_today")],
             [InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
             [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month")],
-            [InlineKeyboardButton("📈 Все время", callback_data="stats_all")]
+            [InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
+            [InlineKeyboardButton("📊 Графики", callback_data="stats_charts")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -157,3 +159,123 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
         
     finally:
         db.close()
+
+
+async def handle_stats_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка кнопки назад в статистике"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await query.edit_message_text("Сначала выполните команду /start")
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("📅 Сегодня", callback_data="stats_today")],
+            [InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
+            [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month")],
+            [InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
+            [InlineKeyboardButton("📊 Графики", callback_data="stats_charts")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "📊 **Статистика**\n\n"
+            "Выберите период для показа статистики:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+    finally:
+        db.close()
+
+
+async def handle_charts_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка callback-кнопок для графиков"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    data = query.data
+    
+    if data == "stats_charts":
+        keyboard = [
+            [InlineKeyboardButton("🍰 Расходы по категориям", callback_data="chart_pie_30")],
+            [InlineKeyboardButton("📈 Тренд расходов (30 дней)", callback_data="chart_trend_30")],
+            [InlineKeyboardButton("📊 Сравнение по месяцам", callback_data="chart_monthly_6")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="stats_back")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "📊 **Графики и диаграммы**\n\n"
+            "Выберите тип графика:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+    
+    elif data.startswith("chart_"):
+        await query.edit_message_text("📊 Генерирую график...")
+        
+        chart_service = ChartService()
+        buffer = None
+        
+        if data == "chart_pie_30":
+            buffer = chart_service.generate_category_pie_chart(user_id, 30)
+            caption = "🍰 Расходы по категориям за последние 30 дней"
+        elif data == "chart_trend_30":
+            buffer = chart_service.generate_spending_trends_chart(user_id, 30)
+            caption = "📈 Тренд расходов по дням за последние 30 дней"
+        elif data == "chart_monthly_6":
+            buffer = chart_service.generate_monthly_comparison_chart(user_id, 6)
+            caption = "📊 Сравнение расходов по месяцам за последние 6 месяцев"
+        
+        if buffer:
+            keyboard = [[InlineKeyboardButton("🔙 К графикам", callback_data="back_to_charts")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.message.reply_photo(
+                photo=buffer,
+                caption=caption,
+                reply_markup=reply_markup
+            )
+            
+            # Удаляем сообщение "Генерирую график..."
+            await query.message.delete()
+        else:
+            keyboard = [[InlineKeyboardButton("🔙 К графикам", callback_data="back_to_charts")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                "😔 Недостаточно данных для создания графика.\n"
+                "Добавьте больше транзакций для получения статистики.",
+                reply_markup=reply_markup
+            )
+    
+    elif data == "back_to_charts":
+        # Возвращаемся к меню графиков, удаляя фото и показывая текстовое меню
+        keyboard = [
+            [InlineKeyboardButton("🍰 Расходы по категориям", callback_data="chart_pie_30")],
+            [InlineKeyboardButton("📈 Тренд расходов (30 дней)", callback_data="chart_trend_30")],
+            [InlineKeyboardButton("📊 Сравнение по месяцам", callback_data="chart_monthly_6")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="stats_back")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Удаляем фото-сообщение
+        await query.message.delete()
+        
+        # Отправляем новое текстовое сообщение с меню графиков
+        await query.message.reply_text(
+            "📊 **Графики и диаграммы**\n\n"
+            "Выберите тип графика:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )

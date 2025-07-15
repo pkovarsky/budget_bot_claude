@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from database import get_db_session, User, Category, Transaction, Limit
-from openai_service import OpenAIService
+from services.openai_service import OpenAIService
 from utils.parsers import parse_transaction
 
 logger = logging.getLogger(__name__)

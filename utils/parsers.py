@@ -9,15 +9,16 @@ def parse_transaction(text: str) -> Optional[Tuple[float, str, str, bool]]:
     if is_income:
         text = text[1:].strip()
     
-    # Паттерны для парсинга
-    patterns = [
+    # Паттерны для парсинга с валютой
+    patterns_with_currency = [
         r'(\d+(?:\.\d+)?)\s*(евро|euro|eur|€)\s+(.+)',
         r'(\d+(?:\.\d+)?)\s*(доллар|долларов|usd|\$)\s+(.+)',
         r'(\d+(?:\.\d+)?)\s+(.+?)\s*(евро|euro|eur|€)',
         r'(\d+(?:\.\d+)?)\s+(.+?)\s*(доллар|долларов|usd|\$)',
     ]
     
-    for pattern in patterns:
+    # Сначала пытаемся найти валюту
+    for pattern in patterns_with_currency:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             groups = match.groups()
@@ -32,6 +33,19 @@ def parse_transaction(text: str) -> Optional[Tuple[float, str, str, bool]]:
                 description = description.strip()
                 
                 return amount, currency, description, is_income
+    
+    # Если валюта не найдена, ищем только сумму и описание
+    pattern_without_currency = r'(\d+(?:\.\d+)?)\s+(.+)'
+    match = re.search(pattern_without_currency, text, re.IGNORECASE)
+    if match:
+        amount_str, description = match.groups()
+        try:
+            amount = float(amount_str)
+            description = description.strip()
+            # Используем EUR по умолчанию
+            return amount, 'EUR', description, is_income
+        except ValueError:
+            pass
     
     return None
 

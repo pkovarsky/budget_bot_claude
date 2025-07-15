@@ -100,10 +100,12 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
             
         elif data == "settings_name":
             # Запросить ввод имени
-            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]]
+            keyboard = [[InlineKeyboardButton("❌ Отмена", callback_data="settings_back")]]
             await query.edit_message_text(
-                get_message("enter_name", user.language),
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                f"{get_message('enter_name', user.language)}\n\n"
+                f"💡 Или отправьте /cancel для отмены",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
             )
             context.user_data['setting_name'] = True
 
@@ -123,6 +125,15 @@ async def handle_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     
     user_id = update.effective_user.id
     name = update.message.text.strip()
+    
+    # Проверяем на отмену
+    if name.lower() in ['/cancel', 'отмена', 'cancel']:
+        context.user_data.pop('setting_name', None)
+        await update.message.reply_text(
+            "❌ Изменение имени отменено.",
+            reply_markup=None
+        )
+        return
     
     if not name or len(name) > 50:
         await update.message.reply_text("Имя должно быть от 1 до 50 символов.")
