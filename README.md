@@ -44,6 +44,8 @@ git clone <repository-url>
 cd budget_bot_claude
 ```
 
+**Требования:** Python 3.13 или новее.
+
 ### 2. Установка зависимостей
 
 ```bash
