@@ -14,39 +14,52 @@ class OpenAIService:
         self.client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
     
     async def categorize_transaction(self, description: str, existing_categories: List[str]) -> str:
-        """
-        Определяет категорию транзакции на основе описания
-        """
+        """Определяет категорию транзакции на основе описания."""
+
+        desc_lower = description.lower().strip()
+
+        # Сначала проверяем точное совпадение с существующей категорией
+        for cat in existing_categories:
+            if desc_lower == cat.lower():
+                return cat
+
+        # Затем ищем категорию как подстроку в описании
+        for cat in existing_categories:
+            if cat.lower() in desc_lower:
+                return cat
+
         prompt = f"""
         Определи наиболее подходящую категорию для транзакции: "{description}"
-        
+
         Доступные категории: {', '.join(existing_categories)}
-        
+
         Верни только название категории из списка доступных категорий.
         Если ни одна не подходит, верни "Прочее".
         """
-        
+
         try:
             response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Ты помощник для категоризации транзакций. Отвечай только названием категории."},
+                    {
+                        "role": "system",
+                        "content": "Ты помощник для категоризации транзакций. Отвечай только названием категории."
+                    },
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
                 max_tokens=50
             )
-            
+
             category = response.choices[0].message.content.strip()
-            # Проверяем, что категория есть в списке
             if category in existing_categories:
                 return category
-            else:
-                return "Прочее"
-            
+
         except Exception as e:
             logger.error(f"Ошибка при обращении к OpenAI: {e}")
-            return "Прочее"
+
+        # Fallback
+        return "Прочее"
     
     async def analyze_receipt_image(self, image_data: bytes) -> List[Dict]:
         """
