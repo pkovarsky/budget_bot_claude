@@ -3,12 +3,6 @@
 Тестирование навигационных кнопок "Назад" и "Отмена"
 """
 
-import asyncio
-from unittest.mock import Mock, AsyncMock
-from handlers.categories_handler import handle_categories_callback
-from handlers.limits_handler import handle_limits_callback
-from handlers.settings_handler import handle_settings_callback
-from handlers.edit_handler import handle_edit_callback
 
 def test_navigation_buttons():
     """Проверка наличия кнопок навигации"""

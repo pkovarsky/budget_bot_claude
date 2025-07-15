@@ -1,17 +1,13 @@
 import pytest
 import asyncio
 from unittest.mock import Mock, patch, AsyncMock
-from datetime import datetime, timedelta
 from io import BytesIO
 from PIL import Image
-import json
 
 from database import get_db_session, User, Category, Transaction, Limit, Base, engine
 from services.openai_service import OpenAIService
 from services.chart_service import ChartService
 from handlers.enhanced_transaction_handler import EnhancedTransactionHandler
-from handlers.categories_handler import categories_command, handle_categories_callback
-from handlers.stats_handler import stats_command, handle_stats_callback, handle_charts_callback
 from utils.parsers import parse_transaction
 
 

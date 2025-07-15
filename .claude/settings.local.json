@@ -9,7 +9,8 @@
       "Bash(pkill:*)",
       "Bash(kill:*)",
       "Bash(chmod +x start_bot_with_notifications.py)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

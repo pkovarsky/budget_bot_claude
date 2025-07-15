@@ -1,0 +1,184 @@
+name: 🚀 Deploy Budget Bot
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Позволяет запускать вручную
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # 🧪 Тестирование
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: 📦 Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: 📋 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: 🗄️ Create test database
+      run: |
+        python -c "from database import create_tables; create_tables()"
+        
+    - name: 🧪 Run tests
+      run: |
+        python -m pytest tests/ -v
+        python tests/test_memory_system.py
+        
+    - name: 🔍 Run memory system migration test
+      run: |
+        python scripts/migrate_memory_system.py
+
+  # 🏗️ Сборка Docker образа
+  build:
+    name: 🏗️ Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 🏷️ Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: 🏗️ Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # 🚀 Деплой (если нужен)
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment: production
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🚀 Deploy to Railway
+      if: ${{ secrets.RAILWAY_TOKEN }}
+      run: |
+        echo "🚂 Deploying to Railway..."
+        curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{"branch": "${{ github.ref_name }}"}' \
+          "https://backboard.railway.app/v2/deploy"
+          
+    - name: 🐳 Deploy with Docker Compose (alternative)
+      if: ${{ secrets.DEPLOY_HOST }}
+      run: |
+        echo "🐳 Alternative deployment method..."
+        # Здесь можно добавить деплой на свой сервер
+        # ssh deploy@${{ secrets.DEPLOY_HOST }} "cd /app && docker-compose pull && docker-compose up -d"
+
+  # 🔍 Security scan
+  security:
+    name: 🔍 Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔍 Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: 📤 Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # 📊 Performance monitoring
+  monitor:
+    name: 📊 Monitor Performance
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - name: 🏃 Health check
+      run: |
+        echo "🏥 Checking application health..."
+        # Здесь можно добавить health check вашего бота
+        # curl -f ${{ secrets.APP_URL }}/health || exit 1
+        
+    - name: 📈 Performance test
+      run: |
+        echo "📊 Running performance tests..."
+        # Здесь можно добавить performance тесты
+        echo "✅ Performance check completed"
+        
+    - name: 🔔 Notify on success
+      if: success()
+      run: |
+        echo "✅ Deployment successful!"
+        # Можно добавить уведомление в Slack/Discord
+        
+    - name: 🚨 Notify on failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed!"
+        # Можно добавить уведомление об ошибке

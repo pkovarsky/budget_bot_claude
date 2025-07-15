@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.category_memory_service import CategoryMemoryService
-from database import get_db_session, User, Category, CategoryMemory
+from database import get_db_session, CategoryMemory
 import unittest
 
 class TestMemorySystem(unittest.TestCase):
