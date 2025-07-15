@@ -206,7 +206,7 @@ class TransactionHandler:
         if not result:
             await update.message.reply_text(
                 "Неверный формат. Укажите сумму и валюту, например:\n"
-                "`500 EUR` или `10000 RUB` или `300 USD`",
+                "`500 EUR` или `300 USD`",
                 parse_mode='Markdown'
             )
             return

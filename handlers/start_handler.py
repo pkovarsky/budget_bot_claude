@@ -163,7 +163,7 @@ async def handle_name_input_setup(update: Update, context: ContextTypes.DEFAULT_
             user.name = name
             db.commit()
             
-            await update.message.reply_text(
+            await update.message.reply_tчext(
                 f"✅ Приятно познакомиться, {name}!\n\n"
                 f"Настройка завершена. Используйте /help для просмотра команд.",
                 parse_mode='Markdown'

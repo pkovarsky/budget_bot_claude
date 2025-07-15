@@ -59,14 +59,12 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             stats_data.append({
                 'Показатель': 'Общий доход',
                 'EUR': df[(df['Тип'] == 'Доход') & (df['Валюта'] == 'EUR')]['Сумма'].sum(),
-                'RUB': df[(df['Тип'] == 'Доход') & (df['Валюта'] == 'RUB')]['Сумма'].sum(),
                 'USD': df[(df['Тип'] == 'Доход') & (df['Валюта'] == 'USD')]['Сумма'].sum()
             })
             
             stats_data.append({
                 'Показатель': 'Общие расходы',
                 'EUR': df[(df['Тип'] == 'Расход') & (df['Валюта'] == 'EUR')]['Сумма'].sum(),
-                'RUB': df[(df['Тип'] == 'Расход') & (df['Валюта'] == 'RUB')]['Сумма'].sum(),
                 'USD': df[(df['Тип'] == 'Расход') & (df['Валюта'] == 'USD')]['Сумма'].sum()
             })
             

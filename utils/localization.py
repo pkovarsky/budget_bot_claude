@@ -34,7 +34,7 @@ MESSAGES = {
         "category_added": "Категория '{name}' добавлена!",
         "category_exists": "Категория '{name}' уже существует",
         
-        # Валюты (без RUB)
+
         "supported_currencies": "EUR, USD",
         
         # Ошибки
@@ -101,8 +101,7 @@ MESSAGES = {
         "no": "❌ No, choose another",
         "category_added": "Category '{name}' added!",
         "category_exists": "Category '{name}' already exists",
-        
-        # Currencies (without RUB)
+
         "supported_currencies": "EUR, USD",
         
         # Errors
@@ -169,8 +168,7 @@ MESSAGES = {
         "no": "❌ Ні, обрати іншу",
         "category_added": "Категорію '{name}' додано!",
         "category_exists": "Категорія '{name}' вже існує",
-        
-        # Валюти (без RUB)
+
         "supported_currencies": "EUR, USD",
         
         # Помилки

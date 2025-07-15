@@ -73,7 +73,7 @@ class OpenAIService:
             Проанализируй этот чек и извлеки все покупки.
             Верни результат в формате JSON:
             {
-                "currency": "валюта (например, EUR, RUB, USD)",
+                "currency": "валюта (например, EUR, USD)",
                 "total_amount": общая_сумма,
                 "store_name": "название_магазина",
                 "date": "дата в формате YYYY-MM-DD",
@@ -169,7 +169,6 @@ class OpenAIService:
         
         # Маппинг валют
         currency_mapping = {
-            'RUB': 'RUB', 'RUBLE': 'RUB', 'RUBLES': 'RUB', 'РУБ': 'RUB', 'РУБЛЬ': 'RUB',
             'EUR': 'EUR', 'EURO': 'EUR', 'EUROS': 'EUR', 'ЕВРО': 'EUR',
             'USD': 'USD', 'DOLLAR': 'USD', 'DOLLARS': 'USD', 'ДОЛЛАР': 'USD',
             'UAH': 'UAH', 'HRYVNIA': 'UAH', 'ГРИВНА': 'UAH'

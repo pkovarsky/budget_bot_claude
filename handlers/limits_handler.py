@@ -94,8 +94,9 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 
                 message += f"{status_emoji} **{category.name}**\n"
                 message += f"   Лимит: {limit.amount} {limit.currency}\n"
-                message += f"   Потрачено: {total_spent:.2f} {limit.currency} ({percentage:.1f}%)\n\n"
-            
+                message += f"   Потрачено: {total_spent:.2f} {limit.currency} ({percentage:.1f}%)\n"
+                message += f"   Осталось: {limit.amount - total_spent:.2f} {limit.currency} ({100 - percentage:.1f}%)\n\n"
+
             keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -147,7 +148,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             await query.edit_message_text(
                 f"📝 **Установка лимита для '{category.name}'**\n\n"
                 "Отправьте сумму лимита с валютой, например:\n"
-                "`500 EUR` или `10000 RUB` или `300 USD`",
+                "`500 EUR` или `300 USD`",
                 parse_mode='Markdown'
             )
             

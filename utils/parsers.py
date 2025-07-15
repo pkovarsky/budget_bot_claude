@@ -12,10 +12,8 @@ def parse_transaction(text: str) -> Optional[Tuple[float, str, str, bool]]:
     # Паттерны для парсинга
     patterns = [
         r'(\d+(?:\.\d+)?)\s*(евро|euro|eur|€)\s+(.+)',
-        r'(\d+(?:\.\d+)?)\s*(рубль|рублей|руб|rub|₽)\s+(.+)',
         r'(\d+(?:\.\d+)?)\s*(доллар|долларов|usd|\$)\s+(.+)',
         r'(\d+(?:\.\d+)?)\s+(.+?)\s*(евро|euro|eur|€)',
-        r'(\d+(?:\.\d+)?)\s+(.+?)\s*(рубль|рублей|руб|rub|₽)',
         r'(\d+(?:\.\d+)?)\s+(.+?)\s*(доллар|долларов|usd|\$)',
     ]
     
@@ -43,8 +41,6 @@ def normalize_currency(currency: str) -> str:
     currency = currency.lower()
     if currency in ['евро', 'euro', 'eur', '€']:
         return 'EUR'
-    elif currency in ['рубль', 'рублей', 'руб', 'rub', '₽']:
-        return 'RUB'
     elif currency in ['доллар', 'долларов', 'usd', '$']:
         return 'USD'
     return currency.upper()
@@ -54,9 +50,7 @@ def parse_amount_and_currency(text: str) -> Optional[Tuple[float, str]]:
     """Парсинг суммы и валюты для лимитов"""
     patterns = [
         r'(\d+(?:\.\d+)?)\s*(евро|euro|eur|€)',
-        r'(\d+(?:\.\d+)?)\s*(рубль|рублей|руб|rub|₽)',
         r'(\d+(?:\.\d+)?)\s*(доллар|долларов|usd|\$)',
-        r'(\d+(?:\.\d+)?)\s*(EUR|RUB|USD)',
     ]
     
     for pattern in patterns:

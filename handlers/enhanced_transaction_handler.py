@@ -61,15 +61,7 @@ class EnhancedTransactionHandler:
                 return
             
             amount, currency, description, is_income = transaction_data
-            
-            # Удаляем RUB из поддерживаемых валют
-            if currency == 'RUB':
-                await update.message.reply_text(
-                    f"❌ Валюта RUB больше не поддерживается.\n"
-                    f"Поддерживаемые валюты: {get_message('supported_currencies', user.language)}",
-                    parse_mode='Markdown'
-                )
-                return
+
             
             # Получаем предлагаемую категорию через OpenAI
             suggested_category = await self._suggest_category(description, user.id, db)
@@ -318,15 +310,7 @@ class EnhancedTransactionHandler:
             return
         
         amount, currency = result
-        
-        # Проверяем, что это не RUB
-        if currency == 'RUB':
-            await update.message.reply_text(
-                "❌ Валюта RUB больше не поддерживается.\n"
-                "Поддерживаемые валюты: EUR, USD",
-                parse_mode='Markdown'
-            )
-            return
+
         
         if amount <= 0:
             await update.message.reply_text("Сумма лимита должна быть больше нуля.")
