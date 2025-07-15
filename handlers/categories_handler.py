@@ -59,9 +59,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             return
         
         if data == "cat_add":
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="cat_back")]]
             await query.edit_message_text(
                 "📝 **Добавление новой категории**\n\n"
-                "Отправьте название новой категории:"
+                "Отправьте название новой категории:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
             )
             context.user_data['waiting_for_category'] = True
             
@@ -156,6 +158,7 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             )
             
         elif data == "cat_back":
+            context.user_data.pop('waiting_for_category', None)
             # Возвращаемся к списку категорий
             categories = db.query(Category).filter(Category.user_id == user.id).all()
             

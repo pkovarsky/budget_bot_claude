@@ -124,6 +124,7 @@ class EnhancedTransactionHandler:
                     callback_data=f"select_cat_{category.name}"
                 )])
         
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="select_cancel")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         # Сообщение с предлагаемой категорией
@@ -143,6 +144,11 @@ class EnhancedTransactionHandler:
         query = update.callback_query
         await query.answer()
         
+        if query.data == "select_cancel":
+            context.user_data.pop('pending_transaction', None)
+            await query.edit_message_text("Операция отменена.")
+            return
+
         if not context.user_data.get('pending_transaction'):
             await query.edit_message_text("Сессия истекла. Попробуйте снова.")
             return
