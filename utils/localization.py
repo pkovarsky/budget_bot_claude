@@ -236,7 +236,7 @@ def get_default_categories(language: str = "ru") -> list:
 def get_supported_languages() -> Dict[str, str]:
     """Получить список поддерживаемых языков"""
     return {
-        "ru": "🇷🇺 Русский",
+        "ru": "   Русский",
         "en": "🇺🇸 English", 
         "uk": "🇺🇦 Українська"
     }
