@@ -26,8 +26,7 @@ async def charts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         keyboard = [
             [InlineKeyboardButton("🥧 Расходы по категориям", callback_data="chart_pie")],
             [InlineKeyboardButton("📈 Тренд расходов", callback_data="chart_trends")],
-            [InlineKeyboardButton("📊 Сравнение по месяцам", callback_data="chart_monthly")],
-            [InlineKeyboardButton("🔙 Назад", callback_data="chart_back")]
+            [InlineKeyboardButton("📊 Сравнение по месяцам", callback_data="chart_monthly")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -74,8 +73,6 @@ async def handle_charts_callback(update: Update, context: ContextTypes.DEFAULT_T
         elif data == "chart_monthly":
             context.user_data['chart_type'] = 'monthly'
             await _show_monthly_period_selection(query)
-        elif data == "chart_back":
-            await _show_main_charts_menu(query)
         elif data.startswith("period_"):
             await _handle_period_selection(query, context, data)
         elif data.startswith("monthly_"):
@@ -91,8 +88,7 @@ async def _show_period_selection(query, chart_name: str):
         [InlineKeyboardButton("📅 14 дней", callback_data="period_14")],
         [InlineKeyboardButton("📅 30 дней", callback_data="period_30")],
         [InlineKeyboardButton("📅 60 дней", callback_data="period_60")],
-        [InlineKeyboardButton("📅 90 дней", callback_data="period_90")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="chart_back")]
+        [InlineKeyboardButton("📅 90 дней", callback_data="period_90")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -114,8 +110,7 @@ async def _show_monthly_period_selection(query):
         [InlineKeyboardButton("📅 3 месяца", callback_data="monthly_3")],
         [InlineKeyboardButton("📅 6 месяцев", callback_data="monthly_6")],
         [InlineKeyboardButton("📅 12 месяцев", callback_data="monthly_12")],
-        [InlineKeyboardButton("📅 24 месяца", callback_data="monthly_24")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="chart_back")]
+        [InlineKeyboardButton("📅 24 месяца", callback_data="monthly_24")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -168,8 +163,8 @@ async def _handle_period_selection(query, context: ContextTypes.DEFAULT_TYPE, da
                 caption=f"📊 График {chart_name} за {period_days} дней"
             )
             
-            # Возвращаемся к главному меню
-            await _show_main_charts_menu(query)
+            # Завершаем взаимодействие
+            await query.delete_message()
         else:
             await query.edit_message_text(
                 f"❌ Не удалось создать график.\n"
@@ -207,8 +202,8 @@ async def _handle_monthly_period_selection(query, context: ContextTypes.DEFAULT_
                 caption=f"📊 График сравнения расходов по месяцам за {months} мес."
             )
             
-            # Возвращаемся к главному меню
-            await _show_main_charts_menu(query)
+            # Завершаем взаимодействие
+            await query.delete_message()
         else:
             await query.edit_message_text(
                 f"❌ Не удалось создать график.\n"
@@ -222,31 +217,6 @@ async def _handle_monthly_period_selection(query, context: ContextTypes.DEFAULT_
             f"Попробуйте позже или выберите другой период."
         )
 
-async def _show_main_charts_menu(query):
-    """Показать главное меню графиков"""
-    keyboard = [
-        [InlineKeyboardButton("🥧 Расходы по категориям", callback_data="chart_pie")],
-        [InlineKeyboardButton("📈 Тренд расходов", callback_data="chart_trends")],
-        [InlineKeyboardButton("📊 Сравнение по месяцам", callback_data="chart_monthly")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="chart_back")]
-    ]
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    message = (
-        f"📊 **Графики и статистика**\n\n"
-        f"Выберите тип графика для просмотра:\n\n"
-        f"🥧 **Расходы по категориям** - круговая диаграмма\n"
-        f"📈 **Тренд расходов** - динамика по дням\n"
-        f"📊 **Сравнение по месяцам** - столбчатая диаграмма\n\n"
-        f"Для каждого графика можно выбрать период отображения."
-    )
-    
-    await query.edit_message_text(
-        message,
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
-    )
 
 # Для совместимости с существующим кодом
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

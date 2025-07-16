@@ -93,7 +93,7 @@ async def handle_callback(update, context):
             await handle_stats_callback(update, context)
     
     # Обработка кнопок графиков (включая period_ и monthly_ для графиков)
-    elif (data.startswith("chart_") or data == "back_to_charts" or 
+    elif (data.startswith("chart_") or 
           data.startswith("period_") or data.startswith("monthly_")):
         await handle_new_charts_callback(update, context)
     
