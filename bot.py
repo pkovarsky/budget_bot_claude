@@ -88,19 +88,19 @@ async def handle_callback(update, context):
         if data == "stats_back":
             await handle_stats_back(update, context)
         elif data == "stats_charts":
-            await handle_charts_callback(update, context)
+            await handle_new_charts_callback(update, context)
         else:
             await handle_stats_callback(update, context)
     
-    # Обработка кнопок графиков
-    elif data.startswith("chart_") or data == "back_to_charts":
+    # Обработка кнопок графиков (включая period_ и monthly_ для графиков)
+    elif (data.startswith("chart_") or data == "back_to_charts" or 
+          data.startswith("period_") or data.startswith("monthly_")):
         await handle_new_charts_callback(update, context)
     
     # Обработка кнопок уведомлений
     elif (data.startswith("notif_") or data.startswith("daily_") or 
           data.startswith("budget_") or data.startswith("salary_") or 
-          data.startswith("tz_") or data.startswith("period_") or 
-          data.startswith("monthly_")):
+          data.startswith("tz_")):
         await handle_notifications_callback(update, context)
     
     # Обработка кнопок категорий
