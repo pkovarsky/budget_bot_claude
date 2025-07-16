@@ -547,9 +547,6 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode='Markdown'
             )
             
-        elif data.startswith("date_") or data in ["date_back_to_day", "date_back_to_month", "date_back_to_year"]:
-            # Перенаправляем обработку выбора даты
-            await handle_date_selection_callback(update, context)
             
         elif data == "limits_back":
             context.user_data.pop('waiting_for_limit', None)

@@ -125,6 +125,12 @@ async def handle_callback(update, context):
     # Обработка кнопок лимитов
     elif data.startswith("limits_"):
         await handle_limits_callback(update, context)
+    
+    # Обработка кнопок выбора даты для лимитов
+    elif (data.startswith("date_day_") or data.startswith("date_month_") or 
+          data.startswith("date_year_") or data in ["date_back_to_day", "date_back_to_month", "date_back_to_year"]):
+        from handlers.limits_handler import handle_date_selection_callback
+        await handle_date_selection_callback(update, context)
 
     # Обработка кнопок редактирования
     elif data.startswith("edit_"):
