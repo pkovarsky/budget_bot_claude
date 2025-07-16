@@ -42,13 +42,7 @@ async def set_bot_commands(application: Application) -> None:
     commands = [
         BotCommand("start", "Начало работы"),
         BotCommand("menu", "Главное меню"),
-        BotCommand("help", "Справка"),
         BotCommand("categories", "Категории"),
-        BotCommand("stats", "Статистика"),
-        BotCommand("charts", "Графики"),
-        BotCommand("limits", "Лимиты"),
-        BotCommand("export", "Экспорт"),
-        BotCommand("edit", "Редактировать"),
         BotCommand("settings", "Настройки"),
         BotCommand("notifications", "Уведомления"),
     ]
@@ -71,9 +65,6 @@ async def handle_callback(update, context):
     elif data.startswith("setup_name_") or data == "setup_skip_name" or data == "setup_back":
         await handle_name_setup(update, context)
 
-    # Обработка интерактивной справки
-    elif data.startswith("help_"):
-        await handle_help_callback(update, context)
 
     # Обработка главного меню
     elif data.startswith("main_"):
@@ -101,6 +92,10 @@ async def handle_callback(update, context):
     elif (data.startswith("subcat_emoji_select_") or data == "subcat_more_emojis" or
           data == "subcat_back_to_name" or data == "subcat_back_to_emoji_selection"):
         await transaction_handler.handle_subcategory_emoji_selection(update, context)
+
+    # Обработка интерактивной справки
+    elif data.startswith("help_"):
+        await handle_help_callback(update, context)
 
     # Обработка кнопок статистики
     elif data.startswith("stats_"):
@@ -154,7 +149,6 @@ def main() -> None:
     # Регистрация обработчиков команд
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("menu", menu_command))
-    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("categories", categories_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("charts", charts_command))

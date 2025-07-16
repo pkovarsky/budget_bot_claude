@@ -24,12 +24,47 @@ async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         keyboard = [
             [InlineKeyboardButton(get_message("today", user.language), callback_data="edit_today")],
             [InlineKeyboardButton(get_message("this_week", user.language), callback_data="edit_week")],
-            [InlineKeyboardButton(get_message("this_month", user.language), callback_data="edit_month")]
+            [InlineKeyboardButton(get_message("this_month", user.language), callback_data="edit_month")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
+            f"{get_message('edit_transactions', user.language)}\n\n{get_message('select_period', user.language)}",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        
+    finally:
+        db.close()
+
+
+async def edit_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /edit через callback"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await query.edit_message_text(get_message("start_first", user.language if user else "ru"))
+            return
+        
+        # Создаем клавиатуру выбора периода
+        keyboard = [
+            [InlineKeyboardButton(get_message("today", user.language), callback_data="edit_today")],
+            [InlineKeyboardButton(get_message("this_week", user.language), callback_data="edit_week")],
+            [InlineKeyboardButton(get_message("this_month", user.language), callback_data="edit_month")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
             f"{get_message('edit_transactions', user.language)}\n\n{get_message('select_period', user.language)}",
             reply_markup=reply_markup,
             parse_mode='Markdown'

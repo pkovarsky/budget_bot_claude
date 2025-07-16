@@ -22,11 +22,11 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             return
         
         keyboard = [
-            [InlineKeyboardButton("📅 Сегодня", callback_data="stats_today")],
-            [InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
-            [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month")],
-            [InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
-            [InlineKeyboardButton("📊 Графики", callback_data="stats_charts")]
+            [InlineKeyboardButton("📅 Сегодня", callback_data="stats_today"),
+             InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
+            [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month"),
+             InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -79,7 +79,10 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
         ).all()
         
         if not transactions:
-            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="stats_back")]]
+            keyboard = [
+                [InlineKeyboardButton("🔙 Назад", callback_data="stats_back"),
+                 InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
+            ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
@@ -149,7 +152,10 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
                     currency_texts.append(f"{amount:.2f} {currency}")
                 text += ", ".join(currency_texts) + "\n"
         
-        keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="stats_back")]]
+        keyboard = [
+            [InlineKeyboardButton("🔙 Назад", callback_data="stats_back"),
+             InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await query.edit_message_text(
@@ -177,11 +183,11 @@ async def handle_stats_back(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             return
         
         keyboard = [
-            [InlineKeyboardButton("📅 Сегодня", callback_data="stats_today")],
-            [InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
-            [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month")],
-            [InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
-            [InlineKeyboardButton("📊 Графики", callback_data="stats_charts")]
+            [InlineKeyboardButton("📅 Сегодня", callback_data="stats_today"),
+             InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
+            [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month"),
+             InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -301,8 +307,7 @@ async def stats_command_callback(update: Update, context: ContextTypes.DEFAULT_T
              InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
             [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month"),
              InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
-            [InlineKeyboardButton("📊 Графики", callback_data="stats_charts")],
-            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)

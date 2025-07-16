@@ -598,3 +598,5 @@ EUR (по умолчанию), USD
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(help_text, reply_markup=reply_markup, parse_mode='Markdown')
+
+

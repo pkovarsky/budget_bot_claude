@@ -30,12 +30,54 @@ async def limits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
         keyboard.extend([
             [InlineKeyboardButton("➕ Добавить лимит", callback_data="limits_add"),
-             InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")]
+             InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
+            "💳 **Управление лимитами**\n\n"
+            "Лимиты помогают контролировать расходы по категориям.\n"
+            "Вы получите уведомление при превышении 80% и 100% лимита.",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+    finally:
+        db.close()
+
+
+async def limits_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /limits через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, "Сначала выполните команду /start")
+            return
+        
+        # Получаем все лимиты пользователя
+        limits = db.query(Limit).filter(Limit.user_id == user.id).all()
+        
+        keyboard = []
+        
+        if limits:
+            keyboard.append([InlineKeyboardButton("📋 Мои лимиты", callback_data="limits_view")])
+        
+        keyboard.extend([
+            [InlineKeyboardButton("➕ Добавить лимит", callback_data="limits_add"),
+             InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
+        ])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await safe_edit_message(query,
             "💳 **Управление лимитами**\n\n"
             "Лимиты помогают контролировать расходы по категориям.\n"
             "Вы получите уведомление при превышении 80% и 100% лимита.",
@@ -93,8 +135,9 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 
                 status_emoji = "🔴" if percentage >= 100 else "🟡" if percentage >= 80 else "🟢"
                 
+                period_text = "неделю" if limit.period == "weekly" else "месяц"
                 message += f"{status_emoji} **{category.name}**\n"
-                message += f"   Лимит: {limit.amount} {limit.currency}\n"
+                message += f"   Лимит: {limit.amount} {limit.currency} за {period_text}\n"
                 message += f"   Потрачено: {total_spent:.2f} {limit.currency} ({percentage:.1f}%)\n"
                 message += f"   Осталось: {limit.amount - total_spent:.2f} {limit.currency} ({100 - percentage:.1f}%)\n\n"
 
@@ -146,11 +189,41 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 await query.edit_message_text("Категория не найдена.")
                 return
             
+            # Показываем выбор периода
+            keyboard = [
+                [InlineKeyboardButton("📅 Еженедельно", callback_data=f"limits_period_weekly_{category_id}")],
+                [InlineKeyboardButton("📊 Ежемесячно", callback_data=f"limits_period_monthly_{category_id}")],
+                [InlineKeyboardButton("🔙 Назад", callback_data="limits_add")]
+            ]
+            
+            await query.edit_message_text(
+                f"📝 **Настройка лимита для {category.name}**\n\n"
+                f"Выберите период для лимита:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
+        elif data.startswith("limits_period_"):
+            parts = data.split("_")
+            period = parts[2]  # weekly или monthly
+            category_id = int(parts[3])
+            
+            category = db.query(Category).filter(
+                Category.id == category_id,
+                Category.user_id == user.id
+            ).first()
+            
+            if not category:
+                await query.edit_message_text("Категория не найдена.")
+                return
+            
+            period_text = "неделю" if period == "weekly" else "месяц"
+            
             keyboard = [
                 [InlineKeyboardButton("❌ Отмена", callback_data="limits_add")]
             ]
             await query.edit_message_text(
-                f"📝 **Установка лимита для '{category.name}'**\n\n"
+                f"📝 **Установка лимита для '{category.name}' ({period_text})**\n\n"
                 "Отправьте сумму лимита с валютой, например:\n"
                 "`500 EUR` или `300 USD`\n\n"
                 "💡 Или отправьте /cancel для отмены",
@@ -158,7 +231,10 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode='Markdown'
             )
             
-            context.user_data['waiting_for_limit'] = category_id
+            context.user_data['waiting_for_limit'] = {
+                'category_id': category_id,
+                'period': period
+            }
             
         elif data == "limits_delete":
             limits = db.query(Limit).filter(Limit.user_id == user.id).all()

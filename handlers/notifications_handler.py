@@ -34,11 +34,11 @@ async def notifications_command(update: Update, context: ContextTypes.DEFAULT_TY
         salary_date = f"{user.salary_date} числа" if user.salary_date else "не установлена"
         
         keyboard = [
-            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily"),
-             InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
-            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary"),
-             InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
-            [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
+            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily")],
+            [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
+            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
+            [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -453,11 +453,11 @@ async def notifications_command_callback(update: Update, context: ContextTypes.D
         budget_time = user.budget_notification_time.strftime("%H:%M") if user.budget_notification_time else "не установлено"
         
         keyboard = [
-            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily"),
-             InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
-            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary"),
-             InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
-            [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
+            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily")],
+            [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
+            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
+            [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)

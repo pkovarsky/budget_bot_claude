@@ -823,7 +823,15 @@ class EnhancedTransactionHandler:
         
         text = update.message.text.strip()
         user_id = update.effective_user.id
-        category_id = context.user_data.get('waiting_for_limit')
+        limit_data = context.user_data.get('waiting_for_limit')
+        
+        # Поддерживаем старый формат для совместимости
+        if isinstance(limit_data, int):
+            category_id = limit_data
+            period = 'monthly'  # По умолчанию месячный период
+        else:
+            category_id = limit_data.get('category_id')
+            period = limit_data.get('period', 'monthly')
         
         # Парсинг суммы и валюты
         result = parse_amount_and_currency(text)
@@ -874,17 +882,19 @@ class EnhancedTransactionHandler:
                 user_id=user.id,
                 category_id=category_id,
                 amount=amount,
-                currency=currency
+                currency=currency,
+                period=period
             )
             
             db.add(limit)
             db.commit()
             
             name = user.name or "друг"
+            period_text = "неделю" if period == "weekly" else "месяц"
             await update.message.reply_text(
                 f"✅ {name}, лимит установлен!\n\n"
                 f"Категория: {category.name}\n"
-                f"Лимит: {amount} {currency}",
+                f"Лимит: {amount} {currency} за {period_text}",
                 parse_mode='Markdown'
             )
             

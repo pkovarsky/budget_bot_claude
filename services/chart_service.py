@@ -103,11 +103,14 @@ class ChartService:
                 text.set_fontsize(12)
                 text.set_fontweight('bold')
             
-            # Добавляем стильный заголовок
+            # Добавляем стильный заголовок с датами
             total_amount = sum(amounts)
+            end_date = datetime.now()
+            start_date_str = start_date.strftime('%d.%m.%Y')
+            end_date_str = end_date.strftime('%d.%m.%Y')
             ax.set_title(
                 f'💰 Расходы по категориям\n'
-                f'📅 За последние {period_days} дней\n'
+                f'📅 {start_date_str} - {end_date_str} ({period_days} дней)\n'
                 f'💸 Общая сумма: {self._format_amount(total_amount)}€',
                 fontsize=18,
                 fontweight='bold',
@@ -204,9 +207,13 @@ class ChartService:
             # Настраиваем оси с эмодзи
             ax.set_xlabel('📅 Дата', fontsize=14, fontweight='bold', color='#ffffff')
             ax.set_ylabel('💰 Сумма расходов (€)', fontsize=14, fontweight='bold', color='#ffffff')
+            # Добавляем заголовок с датами
+            end_date = datetime.now()
+            start_date_str = start_date.strftime('%d.%m.%Y')
+            end_date_str = end_date.strftime('%d.%m.%Y')
             ax.set_title(
                 f'📈 Тренд расходов по дням\n'
-                f'⏱️ За последние {period_days} дней',
+                f'📅 {start_date_str} - {end_date_str} ({period_days} дней)',
                 fontsize=18,
                 fontweight='bold',
                 color='#ffffff',
