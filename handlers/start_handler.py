@@ -279,7 +279,7 @@ async def ask_for_name(query, user, language: str) -> None:
     keyboard = [
         [InlineKeyboardButton(
             "👤 Указать имя", 
-            callback_data=f"setup_name_{user.id}"
+            callback_data=f"setup_name_{user.telegram_id}"
         )],
         [InlineKeyboardButton(
             "⏭ Пропустить", 
@@ -339,6 +339,8 @@ async def handle_name_input_setup(update: Update, context: ContextTypes.DEFAULT_
     user_id = context.user_data['setting_up_name']
     name = update.message.text.strip()
     
+    logger.info(f"Обработка ввода имени: user_id={user_id}, name='{name}'")
+    
     if not name or len(name) > 50:
         keyboard = [[InlineKeyboardButton("🔙 Попробовать снова", callback_data=f"setup_name_{user_id}")]]
         await update.message.reply_text(
@@ -361,7 +363,20 @@ async def handle_name_input_setup(update: Update, context: ContextTypes.DEFAULT_
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
+        else:
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "❌ Ошибка: пользователь не найден. Выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
         
+    except Exception as e:
+        logger.error(f"Ошибка при сохранении имени: {e}", exc_info=True)
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await update.message.reply_text(
+            f"❌ Произошла ошибка при сохранении имени: {str(e)}",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
     finally:
         db.close()
         context.user_data.pop('setting_up_name', None)

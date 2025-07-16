@@ -19,7 +19,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if not user:
             keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await update.message.reply_text(
-                get_message("start_first", "ru"),
+                "Сначала выполните команду /start",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             return
@@ -72,7 +72,7 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
         if not user:
             keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await query.edit_message_text(
-                get_message("start_first", "ru"),
+                "Сначала выполните команду /start",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             return
@@ -177,7 +177,7 @@ async def handle_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         if not user:
             keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await update.message.reply_text(
-                get_message("start_first", "ru"),
+                "Сначала выполните команду /start",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             return
@@ -187,7 +187,7 @@ async def handle_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         
         keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
         await update.message.reply_text(
-            get_message("name_updated", user.language, name=name),
+            f"✅ Имя успешно изменено на '{name}'!",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         
