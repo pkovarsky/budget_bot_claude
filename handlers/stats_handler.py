@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 
 from database import get_db_session, User, Category, Transaction
 from services.chart_service import ChartService
+from utils.telegram_utils import safe_edit_message, safe_answer_callback
 
 logger = logging.getLogger(__name__)
 
@@ -279,3 +280,38 @@ async def handle_charts_callback(update: Update, context: ContextTypes.DEFAULT_T
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
+
+
+async def stats_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /stats через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, "Сначала выполните команду /start")
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("📅 Сегодня", callback_data="stats_today"),
+             InlineKeyboardButton("📆 Эта неделя", callback_data="stats_week")],
+            [InlineKeyboardButton("📊 Этот месяц", callback_data="stats_month"),
+             InlineKeyboardButton("📈 Все время", callback_data="stats_all")],
+            [InlineKeyboardButton("📊 Графики", callback_data="stats_charts")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await safe_edit_message(query,
+            "📊 **Статистика**\n\n"
+            "Выберите период для показа статистики:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+    finally:
+        db.close()

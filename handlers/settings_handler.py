@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 
 from database import get_db_session, User
 from utils.localization import get_message, get_supported_languages
+from utils.telegram_utils import safe_edit_message, safe_answer_callback
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +95,12 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
             user.language = new_language
             db.commit()
             
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
             await query.edit_message_text(
-                get_message("language_changed", new_language)
+                get_message("language_changed", new_language),
+                reply_markup=reply_markup
             )
             
         elif data == "settings_name":
@@ -112,7 +117,7 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
         elif data == "settings_back":
             # Вернуться к настройкам
             context.user_data.pop('setting_name', None)
-            await settings_command(update, context)
+            await settings_command_callback(update, context)
             
     finally:
         db.close()
@@ -156,3 +161,42 @@ async def handle_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     finally:
         db.close()
         context.user_data.pop('setting_name', None)
+
+
+async def settings_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /settings через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, get_message("start_first", "ru"))
+            return
+        
+        # Информация о текущих настройках
+        current_lang = get_supported_languages().get(user.language, "🇷🇺 Русский")
+        current_name = user.name or "Не указано"
+        
+        message = (
+            f"⚙️ **Настройки**\n\n"
+            f"👤 **Имя**: {current_name}\n"
+            f"🌍 **Язык**: {current_lang}\n\n"
+            f"Выберите что хотите изменить:"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("📝 Изменить имя", callback_data="settings_name")],
+            [InlineKeyboardButton("🌍 Изменить язык", callback_data="settings_language")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
+        
+    finally:
+        db.close()

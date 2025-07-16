@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 
 from database import get_db_session, User, Category
 from utils.localization import get_message, get_default_categories, get_supported_languages
+from utils.telegram_utils import safe_edit_message, safe_answer_callback
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +22,44 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await show_language_selection(update, user_id, username)
             return
         else:
-            # Существующий пользователь
+            # Существующий пользователь - показываем главное меню
             name = user.name or "друг"
-            await update.message.reply_text(
-                f"{get_message('welcome_back', user.language, name=name)}\n\n"
-                f"{get_message('help_commands', user.language)}"
-            )
+            await show_main_menu(update, user)
     finally:
         db.close()
+
+
+async def show_main_menu(update: Update, user: User) -> None:
+    """Показать главное меню с кнопками основных функций"""
+    name = user.name or "друг"
+    
+    # Создаем клавиатуру с основными функциями
+    keyboard = [
+        [InlineKeyboardButton("📊 Статистика", callback_data="main_stats"),
+         InlineKeyboardButton("📈 Графики", callback_data="main_charts")],
+        [InlineKeyboardButton("📤 Экспорт", callback_data="main_export"),
+         InlineKeyboardButton("✏️ Редактировать", callback_data="main_edit")],
+        [InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings"),
+         InlineKeyboardButton("❓ Справка", callback_data="main_help")]
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    message = (
+        f"👋 {get_message('welcome_back', user.language, name=name)}\n\n"
+        f"🎯 **Главное меню**\n\n"
+        f"Выберите действие или просто отправьте сообщение с тратой:\n"
+        f"• `35 продукты` - добавить расход\n"
+        f"• `+2000 зарплата` - добавить доход\n"
+        f"• 📸 **Фото чека** - автоматическое распознавание\n\n"
+        f"Доступны команды: /categories, /stats, /charts, /limits, /export, /settings, /notifications"
+    )
+    
+    await update.message.reply_text(
+        message,
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
 
 
 async def show_language_selection(update: Update, user_id: int, username: str) -> None:
@@ -96,6 +127,148 @@ async def handle_language_setup(update: Update, context: ContextTypes.DEFAULT_TY
         
         # Предлагаем указать имя
         await ask_for_name(query, user, language)
+        
+    finally:
+        db.close()
+
+
+async def handle_main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка кнопок главного меню"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    data = query.data
+    
+    # Обработка кнопок главного меню через callback
+    if data == "main_stats":
+        from handlers.stats_handler import stats_command_callback
+        await stats_command_callback(update, context)
+    elif data == "main_charts":
+        from handlers.charts_handler import charts_command_callback
+        await charts_command_callback(update, context)
+    elif data == "main_categories":
+        from handlers.categories_handler import categories_command_callback
+        await categories_command_callback(update, context)
+    elif data == "main_limits":
+        from handlers.limits_handler import limits_command_callback
+        await limits_command_callback(update, context)
+    elif data == "main_export":
+        from handlers.export_handler import export_command_callback
+        await export_command_callback(update, context)
+    elif data == "main_notifications":
+        from handlers.notifications_handler import notifications_command_callback
+        await notifications_command_callback(update, context)
+    elif data == "main_settings":
+        from handlers.settings_handler import settings_command_callback
+        await settings_command_callback(update, context)
+    elif data == "main_help":
+        await help_command_callback(update, context)
+
+
+async def help_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /help через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, "Сначала выполните команду /start")
+            return
+        
+        # Показываем интерактивную справку
+        keyboard = [
+            [InlineKeyboardButton("💰 Добавление трат", callback_data="help_spending")],
+            [InlineKeyboardButton("📸 Фото чеков", callback_data="help_photos")],
+            [InlineKeyboardButton("🧠 Умная система", callback_data="help_memory")],
+            [InlineKeyboardButton("📊 Команды", callback_data="help_commands")],
+            [InlineKeyboardButton("🔔 Уведомления", callback_data="help_notifications")],
+            [InlineKeyboardButton("📈 Графики", callback_data="help_charts")],
+            [InlineKeyboardButton("🎯 Быстрый старт", callback_data="help_quickstart")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        name = user.name or "друг"
+        message = (
+            f"❓ **Справка Budget Bot**\n\n"
+            f"Привет, {name}! Выберите раздел для получения подробной информации:\n\n"
+            f"• 💰 **Добавление трат** - как правильно записывать операции\n"
+            f"• 📸 **Фото чеков** - автоматическое распознавание\n"
+            f"• 🧠 **Умная система** - как работает система памяти\n"
+            f"• 📊 **Команды** - все доступные команды\n"
+            f"• 🔔 **Уведомления** - настройка напоминаний\n"
+            f"• 📈 **Графики** - визуализация трат\n"
+            f"• 🎯 **Быстрый старт** - для новичков"
+        )
+        
+        await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
+        
+    finally:
+        db.close()
+
+
+async def menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /menu для показа главного меню"""
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await update.message.reply_text("Сначала выполните команду /start")
+            return
+        
+        await show_main_menu(update, user)
+    finally:
+        db.close()
+
+
+async def return_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Возврат к главному меню (для кнопок 'Назад')"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, "Сначала выполните команду /start")
+            return
+        
+        # Создаем клавиатуру с основными функциями
+        keyboard = [
+            [InlineKeyboardButton("📊 Статистика", callback_data="main_stats"),
+             InlineKeyboardButton("📈 Графики", callback_data="main_charts")],
+            [InlineKeyboardButton("📁 Категории", callback_data="main_categories"),
+             InlineKeyboardButton("💰 Лимиты", callback_data="main_limits")],
+            [InlineKeyboardButton("📤 Экспорт", callback_data="main_export"),
+             InlineKeyboardButton("✏️ Редактировать", callback_data="main_edit")],
+            [InlineKeyboardButton("🔔 Уведомления", callback_data="main_notifications"),
+             InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings")],
+            [InlineKeyboardButton("❓ Справка", callback_data="main_help")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        name = user.name or "друг"
+        message = (
+            f"👋 {get_message('welcome_back', user.language, name=name)}\n\n"
+            f"🎯 **Главное меню**\n\n"
+            f"Выберите действие или просто отправьте сообщение с тратой:\n"
+            f"• `35 продукты` - добавить расход\n"
+            f"• `+2000 зарплата` - добавить доход\n"
+            f"• 📸 **Фото чека** - автоматическое распознавание\n\n"
+            f"Доступны команды: /categories, /stats, /charts, /limits, /export, /settings, /notifications"
+        )
+        
+        await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
         
     finally:
         db.close()

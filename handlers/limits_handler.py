@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from database import get_db_session, User, Category, Transaction, Limit
+from utils.telegram_utils import safe_edit_message, safe_answer_callback
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             limits = db.query(Limit).filter(Limit.user_id == user.id).all()
             
             if not limits:
-                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
+                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 await query.edit_message_text(
                     "У вас пока нет установленных лимитов.",
@@ -97,7 +98,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 message += f"   Потрачено: {total_spent:.2f} {limit.currency} ({percentage:.1f}%)\n"
                 message += f"   Осталось: {limit.amount - total_spent:.2f} {limit.currency} ({100 - percentage:.1f}%)\n\n"
 
-            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
@@ -120,13 +121,13 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                     )])
             
             if not keyboard:
-                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
+                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]]
                 await query.edit_message_text(
                     "Для всех категорий уже установлены лимиты.",
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             else:
-                keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="limits_back")])
+                keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
                 await query.edit_message_text(
                     "📝 **Добавление лимита**\n\n"
                     "Выберите категорию для установки лимита:",
@@ -163,7 +164,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             limits = db.query(Limit).filter(Limit.user_id == user.id).all()
             
             if not limits:
-                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="limits_back")]]
+                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]]
                 await query.edit_message_text(
                     "У вас нет лимитов для удаления.",
                     reply_markup=InlineKeyboardMarkup(keyboard)
@@ -178,7 +179,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                     callback_data=f"limits_delete_confirm_{limit.id}"
                 )])
             
-            keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="limits_back")])
+            keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
             
             await query.edit_message_text(
                 "🗑 **Удаление лимита**\n\n"
@@ -230,7 +231,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             db.delete(limit)
             db.commit()
             
-            keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="limits_back")]]
+            keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="back_to_main")]]
             await query.edit_message_text(
                 f"✅ **Лимит удален**\n\n"
                 f"Лимит для категории '{category.name}' успешно удален.",
@@ -262,6 +263,59 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
+        
+    finally:
+        db.close()
+
+
+async def limits_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /limits через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, "Сначала выполните команду /start")
+            return
+        
+        # Получаем категории пользователя
+        categories = db.query(Category).filter(Category.user_id == user.id).all()
+        
+        if not categories:
+            await safe_edit_message(query, 
+                "❌ У вас нет категорий для установки лимитов.\n"
+                "Сначала добавьте категории командой /categories"
+            )
+            return
+        
+        # Получаем существующие лимиты
+        limits = db.query(Limit).filter(Limit.user_id == user.id).all()
+        
+        keyboard = []
+        
+        if limits:
+            keyboard.append([InlineKeyboardButton("📋 Мои лимиты", callback_data="limits_view")])
+        
+        keyboard.extend([
+            [InlineKeyboardButton("➕ Добавить лимит", callback_data="limits_add")],
+            [InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")]
+        ])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await safe_edit_message(query,
+            "💰 **Управление лимитами**\n\n"
+            "Лимиты помогают контролировать расходы по категориям.\n"
+            "Вы получите уведомление при превышении 80% и 100% лимита.",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
         
     finally:
         db.close()

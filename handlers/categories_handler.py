@@ -3,6 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from database import get_db_session, User, Category, Transaction, Limit
+from utils.telegram_utils import safe_edit_message, safe_answer_callback
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             if not category.is_default:
                 keyboard.append([InlineKeyboardButton("🗑 Удалить категорию", callback_data=f"cat_delete_confirm_{category_id}")])
             
-            keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="cat_back")])
+            keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
             
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -370,6 +371,48 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
+        
+    finally:
+        db.close()
+
+
+async def categories_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /categories через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, "Сначала выполните команду /start")
+            return
+        
+        categories = db.query(Category).filter(Category.user_id == user.id).all()
+        
+        keyboard = []
+        keyboard.append([InlineKeyboardButton("➕ Добавить категорию", callback_data="cat_add")])
+        
+        # Показать существующие категории
+        for category in categories:
+            category_emoji = category.emoji if hasattr(category, 'emoji') and category.emoji else "📁"
+            keyboard.append([InlineKeyboardButton(
+                f"{category_emoji} {category.name}",
+                callback_data=f"cat_view_{category.id}"
+            )])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await safe_edit_message(query,
+            "📁 **Управление категориями**\n\n"
+            "Выберите категорию для просмотра или редактирования:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
         
     finally:
         db.close()

@@ -4,7 +4,7 @@
 """
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.chart_service import ChartService
 from database import get_db_session, User, Transaction, Category

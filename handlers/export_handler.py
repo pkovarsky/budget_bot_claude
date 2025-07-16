@@ -2,10 +2,11 @@ import logging
 import pandas as pd
 import io
 from datetime import datetime
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 from database import get_db_session, User, Category, Transaction
+from utils.telegram_utils import safe_edit_message, safe_answer_callback
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +103,20 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
     finally:
         db.close()
+
+
+async def export_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /export через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await safe_edit_message(query,
+        "📤 **Экспорт данных**\n\n"
+        "Экспорт данных пока доступен только через команду /export\n\n"
+        "Используйте команду /export для получения Excel файла с вашими транзакциями.",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )

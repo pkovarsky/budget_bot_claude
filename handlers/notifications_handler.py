@@ -9,6 +9,7 @@ import pytz
 
 from database import get_db_session, User
 from utils.localization import get_message
+from utils.telegram_utils import safe_edit_message, safe_answer_callback
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ async def notifications_command(update: Update, context: ContextTypes.DEFAULT_TY
             [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
             [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
             [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
-            [InlineKeyboardButton("🔙 Назад", callback_data="notif_back")]
+            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -66,7 +67,7 @@ async def notifications_command(update: Update, context: ContextTypes.DEFAULT_TY
 async def handle_notifications_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработка callback-кнопок для настроек уведомлений"""
     query = update.callback_query
-    await query.answer()
+    await safe_answer_callback(query)
     
     user_id = update.effective_user.id
     data = query.data
@@ -75,7 +76,7 @@ async def handle_notifications_callback(update: Update, context: ContextTypes.DE
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text("Сначала выполните команду /start")
+            await safe_edit_message(query, "Сначала выполните команду /start")
             return
         
         if data == "notif_daily":
@@ -111,7 +112,7 @@ async def _show_daily_reminder_settings(query, user: User):
             callback_data="daily_toggle"
         )],
         [InlineKeyboardButton("⏰ Изменить время", callback_data="daily_time")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="notif_back")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -124,11 +125,7 @@ async def _show_daily_reminder_settings(query, user: User):
         f"если вы ещё не добавили ни одной транзакции."
     )
     
-    await query.edit_message_text(
-        message,
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
-    )
+    await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def _show_budget_notification_settings(query, user: User):
     """Показать настройки уведомлений о бюджете"""
@@ -149,7 +146,7 @@ async def _show_budget_notification_settings(query, user: User):
         )],
         [InlineKeyboardButton("⏰ Изменить время", callback_data="budget_time")],
         [InlineKeyboardButton("📊 Изменить частоту", callback_data="budget_frequency")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="notif_back")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -164,11 +161,7 @@ async def _show_budget_notification_settings(query, user: User):
         f"⚠️ Требуется установить дату зарплаты и лимиты на категории."
     )
     
-    await query.edit_message_text(
-        message,
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
-    )
+    await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def _show_salary_date_settings(query, user: User):
     """Показать настройки даты зарплаты"""
@@ -176,7 +169,7 @@ async def _show_salary_date_settings(query, user: User):
     
     keyboard = [
         [InlineKeyboardButton("📅 Установить дату", callback_data="salary_set")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="notif_back")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -188,11 +181,7 @@ async def _show_salary_date_settings(query, user: User):
         f"Укажите день месяца, когда вы получаете зарплату (например, 15 или 30)."
     )
     
-    await query.edit_message_text(
-        message,
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
-    )
+    await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def _show_timezone_settings(query, user: User):
     """Показать настройки часового пояса"""
@@ -214,7 +203,7 @@ async def _show_timezone_settings(query, user: User):
             callback_data=f"tz_{tz_code}"
         )])
     
-    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="notif_back")])
+    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -224,11 +213,7 @@ async def _show_timezone_settings(query, user: User):
         f"Выберите ваш часовой пояс для корректной работы уведомлений:"
     )
     
-    await query.edit_message_text(
-        message,
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
-    )
+    await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def _handle_daily_reminder_callback(query, context: ContextTypes.DEFAULT_TYPE, user: User, data: str):
     """Обработка callback для напоминаний о тратах"""
@@ -245,7 +230,7 @@ async def _handle_daily_reminder_callback(query, context: ContextTypes.DEFAULT_T
             await _show_daily_reminder_settings(query, current_user)
         elif data == "daily_time":
             context.user_data['setting_daily_time'] = True
-            await query.edit_message_text(
+            await safe_edit_message(query,
                 "⏰ **Установка времени напоминания**\n\n"
                 "Отправьте время в формате ЧЧ:ММ (например, 20:00)\n\n"
                 "Отправьте /cancel для отмены",
@@ -269,7 +254,7 @@ async def _handle_budget_notification_callback(query, context: ContextTypes.DEFA
             await _show_budget_notification_settings(query, current_user)
         elif data == "budget_time":
             context.user_data['setting_budget_time'] = True
-            await query.edit_message_text(
+            await safe_edit_message(query,
                 "⏰ **Установка времени уведомлений**\n\n"
                 "Отправьте время в формате ЧЧ:ММ (например, 09:00)\n\n"
                 "Отправьте /cancel для отмены",
@@ -280,12 +265,12 @@ async def _handle_budget_notification_callback(query, context: ContextTypes.DEFA
                 [InlineKeyboardButton("📅 Ежедневно", callback_data="budget_freq_daily")],
                 [InlineKeyboardButton("📅 Еженедельно", callback_data="budget_freq_weekly")],
                 [InlineKeyboardButton("❌ Выключить", callback_data="budget_freq_none")],
-                [InlineKeyboardButton("🔙 Назад", callback_data="notif_budget")]
+                [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
             ]
             
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await query.edit_message_text(
+            await safe_edit_message(query,
                 "📊 **Частота уведомлений о бюджете**\n\n"
                 "Выберите как часто получать уведомления:",
                 reply_markup=reply_markup,
@@ -303,7 +288,7 @@ async def _handle_salary_date_callback(query, context: ContextTypes.DEFAULT_TYPE
     """Обработка callback для даты зарплаты"""
     if data == "salary_set":
         context.user_data['setting_salary_date'] = True
-        await query.edit_message_text(
+        await safe_edit_message(query,
             "📅 **Установка даты зарплаты**\n\n"
             "Отправьте день месяца, когда вы получаете зарплату (число от 1 до 31)\n\n"
             "Примеры: 15, 30, 1\n\n"
@@ -344,7 +329,7 @@ async def _show_main_notifications_menu(query, user: User):
         [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
         [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
         [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="notif_back")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -361,11 +346,7 @@ async def _show_main_notifications_menu(query, user: User):
         f"Выберите настройку для изменения:"
     )
     
-    await query.edit_message_text(
-        message,
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
-    )
+    await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
 
 async def handle_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, setting_type: str) -> None:
     """Обработка ввода времени"""
@@ -445,6 +426,55 @@ async def handle_salary_date_input(update: Update, context: ContextTypes.DEFAULT
         context.user_data.pop('setting_salary_date', None)
         
         await update.message.reply_text(f"✅ Дата зарплаты установлена на {day} число каждого месяца")
+        
+    finally:
+        db.close()
+
+
+async def notifications_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /notifications через callback"""
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, "Сначала выполните команду /start")
+            return
+        
+        # Формируем статусы для отображения
+        daily_status = "✅ Включено" if user.daily_reminder_enabled else "❌ Выключено"
+        daily_time = user.daily_reminder_time.strftime("%H:%M") if user.daily_reminder_time else "не установлено"
+        
+        budget_status = "✅ Включено" if user.budget_notifications_enabled else "❌ Выключено"
+        budget_time = user.budget_notification_time.strftime("%H:%M") if user.budget_notification_time else "не установлено"
+        
+        keyboard = [
+            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily")],
+            [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
+            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
+            [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        message = (
+            f"🔔 **Настройки уведомлений**\n\n"
+            f"📅 **Напоминания о тратах**: {daily_status}\n"
+            f"⏰ Время: {daily_time}\n\n"
+            f"💰 **Уведомления о бюджете**: {budget_status}\n"
+            f"⏰ Время: {budget_time}\n"
+            f"📊 Частота: {user.budget_notification_frequency}\n\n"
+            f"💵 **Дата зарплаты**: {user.salary_date} числа\n"
+            f"🌍 **Часовой пояс**: {user.timezone}\n\n"
+            f"Настройте уведомления для лучшего контроля финансов."
+        )
+        
+        await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')
         
     finally:
         db.close()

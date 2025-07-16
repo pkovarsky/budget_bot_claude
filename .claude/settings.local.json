@@ -13,7 +13,11 @@
       "Bash(chmod:*)",
       "Bash(curl:*)",
       "Bash(git add:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(find:*)",
+      "Bash(-print)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
