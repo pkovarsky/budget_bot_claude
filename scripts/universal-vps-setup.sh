@@ -27,20 +27,83 @@ print_status "🚀 Setting up VPS for Budget Bot deployment..."
 
 # Detect Linux distribution
 detect_distro() {
+    print_status "🔍 Detecting Linux distribution..."
+    
+    # Method 1: Check /etc/os-release
     if [ -f /etc/os-release ]; then
         . /etc/os-release
-        DISTRO=$ID
-        VERSION=$VERSION_ID
+        DISTRO=${ID:-unknown}
+        VERSION=${VERSION_ID:-unknown}
+        print_status "Found os-release: $DISTRO $VERSION"
+    
+    # Method 2: Check for specific release files
     elif [ -f /etc/redhat-release ]; then
-        DISTRO="centos"
+        if grep -qi "centos" /etc/redhat-release; then
+            DISTRO="centos"
+        elif grep -qi "red hat" /etc/redhat-release; then
+            DISTRO="rhel"
+        elif grep -qi "rocky" /etc/redhat-release; then
+            DISTRO="rocky"
+        else
+            DISTRO="rhel"
+        fi
+        VERSION=$(grep -oE '[0-9]+' /etc/redhat-release | head -1)
+        print_status "Found redhat-release: $DISTRO $VERSION"
+    
     elif [ -f /etc/debian_version ]; then
         DISTRO="debian"
+        VERSION=$(cat /etc/debian_version)
+        print_status "Found debian_version: $DISTRO $VERSION"
+    
+    # Method 3: Check for package managers
+    elif command -v apt &> /dev/null; then
+        DISTRO="debian"
+        VERSION="unknown"
+        print_status "Found apt package manager, assuming Debian-based"
+    
+    elif command -v yum &> /dev/null; then
+        DISTRO="centos"
+        VERSION="unknown"
+        print_status "Found yum package manager, assuming Red Hat-based"
+    
+    elif command -v dnf &> /dev/null; then
+        DISTRO="fedora"
+        VERSION="unknown"
+        print_status "Found dnf package manager, assuming Fedora-based"
+    
+    elif command -v pacman &> /dev/null; then
+        DISTRO="arch"
+        VERSION="unknown"
+        print_status "Found pacman package manager, assuming Arch-based"
+    
+    elif command -v zypper &> /dev/null; then
+        DISTRO="opensuse"
+        VERSION="unknown"
+        print_status "Found zypper package manager, assuming openSUSE-based"
+    
+    # Method 4: Check uname for some hints
+    elif uname -a | grep -qi "ubuntu"; then
+        DISTRO="ubuntu"
+        VERSION="unknown"
+        print_status "Found Ubuntu in uname output"
+    
+    elif uname -a | grep -qi "debian"; then
+        DISTRO="debian"
+        VERSION="unknown"
+        print_status "Found Debian in uname output"
+    
     else
         print_error "Cannot detect Linux distribution"
+        print_status "Available files:"
+        ls -la /etc/*release* /etc/*version* 2>/dev/null || echo "No release files found"
+        print_status "Available package managers:"
+        which apt yum dnf pacman zypper 2>/dev/null || echo "No known package managers found"
+        print_status "System info:"
+        uname -a
         exit 1
     fi
     
-    print_status "🔍 Detected distribution: $DISTRO $VERSION"
+    print_success "🔍 Detected distribution: $DISTRO $VERSION"
 }
 
 # Install packages based on distribution
