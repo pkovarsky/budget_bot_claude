@@ -10,7 +10,10 @@
       "Bash(kill:*)",
       "Bash(chmod +x start_bot_with_notifications.py)",
       "Bash(mv:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }
