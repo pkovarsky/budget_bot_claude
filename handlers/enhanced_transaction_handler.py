@@ -71,7 +71,13 @@ class EnhancedTransactionHandler:
             await handle_new_amount(update, context)
             return
             
-        # Если устанавливаем имя
+        # Если устанавливаем имя при первичной настройке
+        if context.user_data.get('setting_up_name'):
+            from handlers.start_handler import handle_name_input_setup
+            await handle_name_input_setup(update, context)
+            return
+        
+        # Если устанавливаем имя в настройках
         if context.user_data.get('setting_name'):
             from handlers.settings_handler import handle_name_input
             await handle_name_input(update, context)
