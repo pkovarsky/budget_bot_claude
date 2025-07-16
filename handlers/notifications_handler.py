@@ -234,10 +234,15 @@ async def _handle_daily_reminder_callback(query, context: ContextTypes.DEFAULT_T
     """Обработка callback для напоминаний о тратах"""
     db = get_db_session()
     try:
+        # Получаем пользователя в текущей сессии
+        current_user = db.query(User).filter(User.telegram_id == user.telegram_id).first()
+        if not current_user:
+            return
+            
         if data == "daily_toggle":
-            user.daily_reminder_enabled = not user.daily_reminder_enabled
+            current_user.daily_reminder_enabled = not current_user.daily_reminder_enabled
             db.commit()
-            await _show_daily_reminder_settings(query, user)
+            await _show_daily_reminder_settings(query, current_user)
         elif data == "daily_time":
             context.user_data['setting_daily_time'] = True
             await query.edit_message_text(
@@ -253,10 +258,15 @@ async def _handle_budget_notification_callback(query, context: ContextTypes.DEFA
     """Обработка callback для уведомлений о бюджете"""
     db = get_db_session()
     try:
+        # Получаем пользователя в текущей сессии
+        current_user = db.query(User).filter(User.telegram_id == user.telegram_id).first()
+        if not current_user:
+            return
+            
         if data == "budget_toggle":
-            user.budget_notifications_enabled = not user.budget_notifications_enabled
+            current_user.budget_notifications_enabled = not current_user.budget_notifications_enabled
             db.commit()
-            await _show_budget_notification_settings(query, user)
+            await _show_budget_notification_settings(query, current_user)
         elif data == "budget_time":
             context.user_data['setting_budget_time'] = True
             await query.edit_message_text(
@@ -283,9 +293,9 @@ async def _handle_budget_notification_callback(query, context: ContextTypes.DEFA
             )
         elif data.startswith("budget_freq_"):
             frequency = data.replace("budget_freq_", "")
-            user.budget_notification_frequency = frequency
+            current_user.budget_notification_frequency = frequency
             db.commit()
-            await _show_budget_notification_settings(query, user)
+            await _show_budget_notification_settings(query, current_user)
     finally:
         db.close()
 
@@ -308,9 +318,14 @@ async def _handle_timezone_callback(query, context: ContextTypes.DEFAULT_TYPE, u
         
         db = get_db_session()
         try:
-            user.timezone = timezone
+            # Получаем пользователя в текущей сессии
+            current_user = db.query(User).filter(User.telegram_id == user.telegram_id).first()
+            if not current_user:
+                return
+                
+            current_user.timezone = timezone
             db.commit()
-            await _show_timezone_settings(query, user)
+            await _show_timezone_settings(query, current_user)
         finally:
             db.close()
 
