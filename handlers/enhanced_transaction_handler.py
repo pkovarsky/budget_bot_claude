@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -93,6 +93,11 @@ class EnhancedTransactionHandler:
         if context.user_data.get('setting_salary_date'):
             from handlers.notifications_handler import handle_salary_date_input
             await handle_salary_date_input(update, context)
+            return
+        
+        # Если редактируем лимит
+        if context.user_data.get('editing_limit'):
+            await self.handle_limit_edit_input(update, context)
             return
             
         text = update.message.text.strip()
@@ -341,47 +346,61 @@ class EnhancedTransactionHandler:
             logger.error(f"Ошибка при определении подкатегории через OpenAI: {e}")
             return None
 
-    async def _check_limits(self, user_id: int, category_id: int, amount: float, currency: str, db) -> str:
-        """Проверка лимитов расходов"""
+    async def _check_limits(self, user_id: int, category_id: int, amount: float, currency: str, db) -> tuple[str, bool]:
+        """Проверка лимитов расходов. Возвращает (warning_message, is_limit_exceeded)"""
         limits = db.query(Limit).filter(
             Limit.user_id == user_id,
             Limit.category_id == category_id
         ).all()
         
         warning_messages = []
+        limit_exceeded = False
         
         for limit in limits:
             if limit.currency != currency:
                 continue
                 
-            # Получаем сумму расходов за текущий месяц в этой категории
-            current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            # Определяем период для расчета
+            if limit.period == 'weekly':
+                # Неделя - последние 7 дней
+                period_start = datetime.now() - timedelta(days=7)
+            elif limit.period == 'custom' and hasattr(limit, 'end_date') and limit.end_date:
+                # Кастомный период - от создания лимита до конечной даты
+                period_start = limit.created_at if hasattr(limit, 'created_at') else datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:
+                # Месяц - текущий месяц
+                period_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
-            month_expenses = db.query(Transaction).filter(
+            period_expenses = db.query(Transaction).filter(
                 Transaction.user_id == user_id,
                 Transaction.category_id == category_id,
                 Transaction.currency == currency,
                 Transaction.amount < 0,
-                Transaction.created_at >= current_month_start
+                Transaction.created_at >= period_start
             ).all()
             
-            total_spent = sum(abs(transaction.amount) for transaction in month_expenses)
+            total_spent = sum(abs(transaction.amount) for transaction in period_expenses)
             total_spent += amount  # Добавляем текущую трату
             
+            category = db.query(Category).filter(Category.id == category_id).first()
+            
             if total_spent > limit.amount:
-                category = db.query(Category).filter(Category.id == category_id).first()
+                limit_exceeded = True
+                period_text = "неделю" if limit.period == "weekly" else ("до " + limit.end_date.strftime('%d.%m.%Y') if limit.period == "custom" else "месяц")
                 warning_messages.append(
-                    f"⚠️ Превышен лимит для категории '{category.name}': "
-                    f"{total_spent:.2f}/{limit.amount:.2f} {currency}"
+                    f"🚨 **ПРЕВЫШЕН ЛИМИТ!** 🚨\n"
+                    f"Категория: {category.name}\n"
+                    f"Потрачено: {total_spent:.2f}/{limit.amount:.2f} {currency}\n"
+                    f"Период: {period_text}"
                 )
             elif total_spent > limit.amount * 0.8:  # Предупреждение при 80%
-                category = db.query(Category).filter(Category.id == category_id).first()
+                period_text = "неделю" if limit.period == "weekly" else ("до " + limit.end_date.strftime('%d.%m.%Y') if limit.period == "custom" else "месяц")
                 warning_messages.append(
                     f"🔔 Приближение к лимиту '{category.name}': "
-                    f"{total_spent:.2f}/{limit.amount:.2f} {currency}"
+                    f"{total_spent:.2f}/{limit.amount:.2f} {currency} за {period_text}"
                 )
         
-        return "\n".join(warning_messages)
+        return "\n".join(warning_messages), limit_exceeded
 
     async def handle_subcategory_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка выбора подкатегории"""
@@ -729,8 +748,9 @@ class EnhancedTransactionHandler:
             
             # Проверка лимитов для расходов
             warning_msg = ""
+            limit_exceeded = False
             if not transaction_data['is_income']:
-                warning_msg = await self._check_limits(
+                warning_msg, limit_exceeded = await self._check_limits(
                     transaction_data['user_id'], 
                     category.id, 
                     abs(transaction_data['amount']), 
@@ -749,21 +769,150 @@ class EnhancedTransactionHandler:
                 subcategory_emoji = subcategory.emoji if hasattr(subcategory, 'emoji') and subcategory.emoji else "📂"
                 category_text += f" → {subcategory_emoji} {subcategory.name}"
             
+            # Основное сообщение о транзакции
             response_text = (
                 f"✅ {operation_type}\n\n"
                 f"👤 {name}, транзакция сохранена:\n"
                 f"{get_message('amount', user.language)}: {transaction_data['amount']} {transaction_data['currency']}\n"
                 f"{get_message('category', user.language)}: {category_text}\n"
-                f"{get_message('description', user.language)}: {transaction_data['description']}\n"
-                f"{warning_msg}"
+                f"{get_message('description', user.language)}: {transaction_data['description']}"
             )
             
-            await query.edit_message_text(response_text, parse_mode='Markdown')
+            # Добавляем кнопку "На главную"
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            
+            await query.edit_message_text(response_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+            
+            # Отправляем отдельное заметное сообщение о превышении лимита
+            if limit_exceeded:
+                limit_keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.message.reply_text(
+                    warning_msg,
+                    parse_mode='Markdown',
+                    reply_markup=InlineKeyboardMarkup(limit_keyboard)
+                )
+            elif warning_msg:  # Предупреждение о приближении к лимиту
+                await query.message.reply_text(warning_msg, parse_mode='Markdown')
             
         finally:
             db.close()
             context.user_data.pop('pending_transaction', None)
             context.user_data.pop('selected_category', None)
+    
+    async def handle_limit_edit_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработка ввода данных для редактирования лимита"""
+        text = update.message.text.strip()
+        user_id = update.effective_user.id
+        edit_data = context.user_data.get('editing_limit')
+        
+        if not edit_data:
+            await update.message.reply_text("❌ Сессия истекла. Попробуйте снова.")
+            return
+        
+        # Проверяем на отмену
+        if text.lower() in ['/cancel', 'отмена', 'cancel']:
+            context.user_data.pop('editing_limit', None)
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "❌ Редактирование лимита отменено.",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            return
+        
+        db = get_db_session()
+        try:
+            user = db.query(User).filter(User.telegram_id == user_id).first()
+            if not user:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await update.message.reply_text(
+                    "Сначала выполните команду /start",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            limit = db.query(Limit).filter(
+                Limit.id == edit_data['limit_id'],
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await update.message.reply_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
+            
+            if edit_data['field'] == 'amount':
+                # Обработка изменения суммы
+                from utils.parsers import parse_amount_and_currency
+                result = parse_amount_and_currency(text)
+                if not result:
+                    await update.message.reply_text(
+                        "❌ Неверный формат. Укажите сумму и валюту, например:\n"
+                        "`600 EUR` или `400 USD`",
+                        parse_mode='Markdown'
+                    )
+                    return
+                
+                amount, currency = result
+                if amount <= 0:
+                    await update.message.reply_text("❌ Сумма лимита должна быть больше нуля.")
+                    return
+                
+                # Обновляем лимит
+                limit.amount = amount
+                limit.currency = currency
+                db.commit()
+                
+                period_text = "неделю" if limit.period == "weekly" else "месяц"
+                keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="settings_back")]]
+                await update.message.reply_text(
+                    f"✅ **Лимит обновлен!**\n\n"
+                    f"Категория: {category.name}\n"
+                    f"Новый лимит: {amount} {currency} за {period_text}",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='Markdown'
+                )
+                
+            elif edit_data['field'] == 'date':
+                # Обработка конкретной даты
+                from datetime import datetime
+                try:
+                    # Парсинг даты в формате ДД.ММ.ГГГГ
+                    date_obj = datetime.strptime(text, '%d.%m.%Y')
+                    if date_obj <= datetime.now():
+                        await update.message.reply_text("❌ Дата должна быть в будущем.")
+                        return
+                    
+                    # Обновляем лимит с конкретной датой
+                    limit.period = 'custom'
+                    limit.end_date = date_obj
+                    db.commit()
+                    
+                    keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="settings_back")]]
+                    await update.message.reply_text(
+                        f"✅ **Дата лимита установлена!**\n\n"
+                        f"Категория: {category.name}\n"
+                        f"Лимит: {limit.amount} {limit.currency}\n"
+                        f"Действует до: {date_obj.strftime('%d.%m.%Y')}",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                    
+                except ValueError:
+                    await update.message.reply_text(
+                        "❌ Неверный формат даты. Используйте формат ДД.ММ.ГГГГ\n"
+                        "Например: `31.07.2024`",
+                        parse_mode='Markdown'
+                    )
+                    return
+                
+        finally:
+            db.close()
+            context.user_data.pop('editing_limit', None)
 
     async def handle_new_category(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка добавления новой категории"""
@@ -1414,8 +1563,9 @@ class EnhancedTransactionHandler:
             
             # Проверка лимитов для расходов
             warning_msg = ""
+            limit_exceeded = False
             if not transaction_data['is_income']:
-                warning_msg = await self._check_limits(
+                warning_msg, limit_exceeded = await self._check_limits(
                     transaction_data['user_id'], 
                     category.id, 
                     abs(transaction_data['amount']), 
@@ -1433,11 +1583,24 @@ class EnhancedTransactionHandler:
                 f"👤 {name}, транзакция сохранена:\n"
                 f"{get_message('amount', user.language)}: {transaction_data['amount']} {transaction_data['currency']}\n"
                 f"{get_message('category', user.language)}: {category.emoji} {category.name}\n"
-                f"{get_message('description', user.language)}: {transaction_data['description']}\n"
-                f"{warning_msg}"
+                f"{get_message('description', user.language)}: {transaction_data['description']}"
             )
             
-            await query.edit_message_text(response_text, parse_mode='Markdown')
+            # Добавляем кнопку "На главную"
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            
+            await query.edit_message_text(response_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+            
+            # Отправляем отдельное заметное сообщение о превышении лимита
+            if limit_exceeded:
+                limit_keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.message.reply_text(
+                    warning_msg,
+                    parse_mode='Markdown',
+                    reply_markup=InlineKeyboardMarkup(limit_keyboard)
+                )
+            elif warning_msg:  # Предупреждение о приближении к лимиту
+                await query.message.reply_text(warning_msg, parse_mode='Markdown')
             
         finally:
             db.close()

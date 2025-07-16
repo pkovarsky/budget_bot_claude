@@ -86,7 +86,8 @@ class Limit(Base):
     category_id = Column(Integer, ForeignKey("categories.id"))
     amount = Column(Float)
     currency = Column(String, default="EUR")
-    period = Column(String, default="monthly")  # daily, weekly, monthly
+    period = Column(String, default="monthly")  # daily, weekly, monthly, custom
+    end_date = Column(DateTime, nullable=True)  # Для кастомных лимитов с конкретной датой
     created_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="limits")

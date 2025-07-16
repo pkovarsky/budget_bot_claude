@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -34,7 +34,8 @@ async def limits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
         keyboard.extend([
             [InlineKeyboardButton("➕ Добавить лимит", callback_data="limits_add"),
-             InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")],
+             InlineKeyboardButton("✏️ Изменить лимит", callback_data="limits_edit")],
+            [InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")],
             [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
         ])
         
@@ -126,15 +127,24 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             for limit in limits:
                 category = db.query(Category).filter(Category.id == limit.category_id).first()
                 
-                # Считаем потраченную сумму за текущий месяц
+                # Считаем потраченную сумму за соответствующий период
                 now = datetime.now()
-                start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                
+                if limit.period == 'weekly':
+                    # Неделя - последние 7 дней
+                    period_start = now - timedelta(days=7)
+                elif limit.period == 'custom' and limit.end_date:
+                    # Кастомный период - от создания лимита до конечной даты
+                    period_start = limit.created_at
+                else:
+                    # Месяц - текущий месяц
+                    period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
                 
                 spent = db.query(Transaction).filter(
                     Transaction.user_id == user.id,
                     Transaction.category_id == limit.category_id,
                     Transaction.amount < 0,
-                    Transaction.created_at >= start_of_month,
+                    Transaction.created_at >= period_start,
                     Transaction.currency == limit.currency
                 ).all()
                 
@@ -143,7 +153,13 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 
                 status_emoji = "🔴" if percentage >= 100 else "🟡" if percentage >= 80 else "🟢"
                 
-                period_text = "неделю" if limit.period == "weekly" else "месяц"
+                if limit.period == "weekly":
+                    period_text = "неделю"
+                elif limit.period == "custom" and limit.end_date:
+                    period_text = f"до {limit.end_date.strftime('%d.%m.%Y')}"
+                else:
+                    period_text = "месяц"
+                
                 message += f"{status_emoji} **{category.name}**\n"
                 message += f"   Лимит: {limit.amount} {limit.currency} за {period_text}\n"
                 message += f"   Потрачено: {total_spent:.2f} {limit.currency} ({percentage:.1f}%)\n"
@@ -252,6 +268,35 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 'period': period
             }
             
+        elif data == "limits_edit":
+            limits = db.query(Limit).filter(Limit.user_id == user.id).all()
+            
+            if not limits:
+                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]]
+                await query.edit_message_text(
+                    "У вас нет лимитов для редактирования.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            keyboard = []
+            for limit in limits:
+                category = db.query(Category).filter(Category.id == limit.category_id).first()
+                period_text = "неделю" if limit.period == "weekly" else "месяц"
+                keyboard.append([InlineKeyboardButton(
+                    f"✏️ {category.name} ({limit.amount} {limit.currency}/{period_text})",
+                    callback_data=f"limits_edit_select_{limit.id}"
+                )])
+            
+            keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="settings_back")])
+            
+            await query.edit_message_text(
+                "✏️ **Редактирование лимита**\n\n"
+                "Выберите лимит для изменения:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
         elif data == "limits_delete":
             limits = db.query(Limit).filter(Limit.user_id == user.id).all()
             
@@ -339,6 +384,177 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode='Markdown'
             )
             
+        elif data.startswith("limits_edit_select_"):
+            limit_id = int(data.split("_")[3])
+            limit = db.query(Limit).filter(
+                Limit.id == limit_id,
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
+            period_text = "неделю" if limit.period == "weekly" else "месяц"
+            
+            keyboard = [
+                [InlineKeyboardButton("💰 Изменить сумму", callback_data=f"limits_edit_amount_{limit_id}")],
+                [InlineKeyboardButton("📅 Изменить период", callback_data=f"limits_edit_period_{limit_id}")],
+                [InlineKeyboardButton("📅 Установить конкретную дату", callback_data=f"limits_edit_date_{limit_id}")],
+                [InlineKeyboardButton("🔙 Назад", callback_data="limits_edit")]
+            ]
+            
+            await query.edit_message_text(
+                f"✏️ **Редактирование лимита**\n\n"
+                f"Категория: {category.name}\n"
+                f"Текущий лимит: {limit.amount} {limit.currency} за {period_text}\n\n"
+                f"Что хотите изменить?",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
+        elif data.startswith("limits_edit_amount_"):
+            limit_id = int(data.split("_")[3])
+            limit = db.query(Limit).filter(
+                Limit.id == limit_id,
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
+            
+            keyboard = [[InlineKeyboardButton("❌ Отмена", callback_data=f"limits_edit_select_{limit_id}")]]
+            await query.edit_message_text(
+                f"💰 **Изменение суммы лимита**\n\n"
+                f"Категория: {category.name}\n"
+                f"Текущий лимит: {limit.amount} {limit.currency}\n\n"
+                f"Отправьте новую сумму с валютой, например:\n"
+                f"`600 EUR` или `400 USD`\n\n"
+                f"💡 Или отправьте /cancel для отмены",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
+            context.user_data['editing_limit'] = {
+                'limit_id': limit_id,
+                'field': 'amount'
+            }
+            
+        elif data.startswith("limits_edit_period_"):
+            limit_id = int(data.split("_")[3])
+            limit = db.query(Limit).filter(
+                Limit.id == limit_id,
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
+            
+            keyboard = [
+                [InlineKeyboardButton("📅 Еженедельно", callback_data=f"limits_period_update_weekly_{limit_id}")],
+                [InlineKeyboardButton("📊 Ежемесячно", callback_data=f"limits_period_update_monthly_{limit_id}")],
+                [InlineKeyboardButton("🔙 Назад", callback_data=f"limits_edit_select_{limit_id}")]
+            ]
+            
+            current_period = "неделю" if limit.period == "weekly" else "месяц"
+            await query.edit_message_text(
+                f"📅 **Изменение периода лимита**\n\n"
+                f"Категория: {category.name}\n"
+                f"Текущий период: {current_period}\n\n"
+                f"Выберите новый период:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
+        elif data.startswith("limits_edit_date_"):
+            limit_id = int(data.split("_")[3])
+            limit = db.query(Limit).filter(
+                Limit.id == limit_id,
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
+            
+            keyboard = [[InlineKeyboardButton("❌ Отмена", callback_data=f"limits_edit_select_{limit_id}")]]
+            await query.edit_message_text(
+                f"📅 **Установка конкретной даты**\n\n"
+                f"Категория: {category.name}\n"
+                f"Текущий лимит: {limit.amount} {limit.currency}\n\n"
+                f"Введите дату в формате ДД.ММ.ГГГГ, например:\n"
+                f"`31.07.2024` или `15.08.2024`\n\n"
+                f"Лимит будет действовать до указанной даты\n\n"
+                f"💡 Или отправьте /cancel для отмены",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
+            context.user_data['editing_limit'] = {
+                'limit_id': limit_id,
+                'field': 'date'
+            }
+            
+        elif data.startswith("limits_period_update_"):
+            parts = data.split("_")
+            new_period = parts[3]  # weekly или monthly
+            limit_id = int(parts[4])
+            
+            limit = db.query(Limit).filter(
+                Limit.id == limit_id,
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
+            
+            # Обновляем период
+            limit.period = new_period
+            db.commit()
+            
+            period_text = "неделю" if new_period == "weekly" else "месяц"
+            keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="settings_back")]]
+            await query.edit_message_text(
+                f"✅ **Период лимита обновлен**\n\n"
+                f"Категория: {category.name}\n"
+                f"Новый период: {period_text}\n"
+                f"Лимит: {limit.amount} {limit.currency} за {period_text}",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+            
         elif data == "limits_back":
             context.user_data.pop('waiting_for_limit', None)
             # Возвращаемся к главному меню лимитов
@@ -402,7 +618,8 @@ async def limits_command_callback(update: Update, context: ContextTypes.DEFAULT_
         
         keyboard.extend([
             [InlineKeyboardButton("➕ Добавить лимит", callback_data="limits_add"),
-             InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")]
+             InlineKeyboardButton("✏️ Изменить лимит", callback_data="limits_edit")],
+            [InlineKeyboardButton("🗑 Удалить лимит", callback_data="limits_delete")]
         ])
         
         keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="settings_back")])

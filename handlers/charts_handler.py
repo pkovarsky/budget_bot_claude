@@ -169,16 +169,20 @@ async def _handle_period_selection(query, context: ContextTypes.DEFAULT_TYPE, da
             # Завершаем взаимодействие
             await safe_delete_message(query)
         else:
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await safe_edit_message(query, 
                 f"❌ Не удалось создать график.\n"
-                f"Возможно, нет данных за выбранный период ({period_days} дней)."
+                f"Возможно, нет данных за выбранный период ({period_days} дней).",
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
     
     except Exception as e:
         logger.error(f"Ошибка при создании графика: {e}")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
         await safe_edit_message(query,
             f"❌ Произошла ошибка при создании графика.\n"
-            f"Попробуйте позже или выберите другой период."
+            f"Попробуйте позже или выберите другой период.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
     
     finally:
@@ -208,16 +212,20 @@ async def _handle_monthly_period_selection(query, context: ContextTypes.DEFAULT_
             # Завершаем взаимодействие
             await safe_delete_message(query)
         else:
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await safe_edit_message(query,
                 f"❌ Не удалось создать график.\n"
-                f"Возможно, нет данных за выбранный период ({months} мес.)."
+                f"Возможно, нет данных за выбранный период ({months} мес.).",
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
     
     except Exception as e:
         logger.error(f"Ошибка при создании месячного графика: {e}")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
         await safe_edit_message(query,
             f"❌ Произошла ошибка при создании графика.\n"
-            f"Попробуйте позже или выберите другой период."
+            f"Попробуйте позже или выберите другой период.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
 
