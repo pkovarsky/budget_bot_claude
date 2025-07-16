@@ -23,7 +23,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             return
         else:
             # Существующий пользователь - показываем главное меню
-            name = user.name or "друг"
+            name = user.name or "бро"
             await show_main_menu(update, user)
     finally:
         db.close()
@@ -31,16 +31,17 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def show_main_menu(update: Update, user: User) -> None:
     """Показать главное меню с кнопками основных функций"""
-    name = user.name or "друг"
+    name = user.name or "бро"
     
     # Создаем клавиатуру с основными функциями
     keyboard = [
-        [InlineKeyboardButton("📊 Статистика", callback_data="main_stats"),
-         InlineKeyboardButton("📈 Графики", callback_data="main_charts")],
-        [InlineKeyboardButton("📤 Экспорт", callback_data="main_export"),
-         InlineKeyboardButton("✏️ Редактировать", callback_data="main_edit")],
-        [InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings"),
-         InlineKeyboardButton("❓ Справка", callback_data="main_help")]
+        [InlineKeyboardButton("💳 Баланс", callback_data="main_balance"),
+         InlineKeyboardButton("📊 Статистика", callback_data="main_stats")],
+        [InlineKeyboardButton("📈 Графики", callback_data="main_charts"),
+         InlineKeyboardButton("📤 Экспорт", callback_data="main_export")],
+        [InlineKeyboardButton("✏️ Редактировать", callback_data="main_edit"),
+         InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings")],
+        [InlineKeyboardButton("❓ Справка", callback_data="main_help")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -52,7 +53,7 @@ async def show_main_menu(update: Update, user: User) -> None:
         f"• `35 продукты` - добавить расход\n"
         f"• `+2000 зарплата` - добавить доход\n"
         f"• 📸 **Фото чека** - автоматическое распознавание\n\n"
-        f"Доступны команды: /categories, /stats, /charts, /limits, /export, /settings, /notifications"
+        f"Доступны команды: /balance, /categories, /stats, /charts, /limits, /export, /settings, /notifications"
     )
     
     await update.message.reply_text(
@@ -118,7 +119,7 @@ async def handle_language_setup(update: Update, context: ContextTypes.DEFAULT_TY
         
         # Приветствие на выбранном языке
         welcome_text = (
-            f"{get_message('welcome', language, name='друг')}\n\n"
+            f"{get_message('welcome', language, name='бро')}\n\n"
             f"{get_message('start_description', language)}\n\n"
             f"{get_message('help_commands', language)}"
         )
@@ -140,7 +141,10 @@ async def handle_main_menu_callback(update: Update, context: ContextTypes.DEFAUL
     data = query.data
     
     # Обработка кнопок главного меню через callback
-    if data == "main_stats":
+    if data == "main_balance":
+        from handlers.balance_handler import balance_command_callback
+        await balance_command_callback(update, context)
+    elif data == "main_stats":
         from handlers.stats_handler import stats_command_callback
         await stats_command_callback(update, context)
     elif data == "main_charts":
@@ -196,7 +200,7 @@ async def help_command_callback(update: Update, context: ContextTypes.DEFAULT_TY
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        name = user.name or "друг"
+        name = user.name or "бро"
         message = (
             f"❓ **Справка Budget Bot**\n\n"
             f"Привет, {name}! Выберите раздел для получения подробной информации:\n\n"
@@ -247,17 +251,18 @@ async def return_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
         
         # Создаем клавиатуру с основными функциями
         keyboard = [
-            [InlineKeyboardButton("📊 Статистика", callback_data="main_stats"),
-             InlineKeyboardButton("📈 Графики", callback_data="main_charts")],
-            [InlineKeyboardButton("📤 Экспорт", callback_data="main_export"),
-             InlineKeyboardButton("✏️ Редактировать", callback_data="main_edit")],
-            [InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings"),
-             InlineKeyboardButton("❓ Справка", callback_data="main_help")]
+            [InlineKeyboardButton("💳 Баланс", callback_data="main_balance"),
+             InlineKeyboardButton("📊 Статистика", callback_data="main_stats")],
+            [InlineKeyboardButton("📈 Графики", callback_data="main_charts"),
+             InlineKeyboardButton("📤 Экспорт", callback_data="main_export")],
+            [InlineKeyboardButton("✏️ Редактировать", callback_data="main_edit"),
+             InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings")],
+            [InlineKeyboardButton("❓ Справка", callback_data="main_help")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        name = user.name or "друг"
+        name = user.name or "бро"
         message = (
             f"👋 {get_message('welcome_back', user.language, name=name)}\n\n"
             f"🎯 **Главное меню**\n\n"
@@ -265,7 +270,7 @@ async def return_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"• `35 продукты` - добавить расход\n"
             f"• `+2000 зарплата` - добавить доход\n"
             f"• 📸 **Фото чека** - автоматическое распознавание\n\n"
-            f"Доступны команды: /categories, /stats, /charts, /limits, /export, /settings, /notifications"
+            f"Доступны команды: /balance, /categories, /stats, /charts, /limits, /export, /settings, /notifications"
         )
         
         await safe_edit_message(query, message, reply_markup=reply_markup, parse_mode='Markdown')

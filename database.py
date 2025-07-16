@@ -33,6 +33,7 @@ class User(Base):
     transactions = relationship("Transaction", back_populates="user")
     categories = relationship("Category", back_populates="user")
     limits = relationship("Limit", back_populates="user")
+    balance = relationship("Balance", back_populates="user", uselist=False)
 
 class Category(Base):
     __tablename__ = "categories"
@@ -92,6 +93,17 @@ class Limit(Base):
     
     user = relationship("User", back_populates="limits")
     category = relationship("Category")
+
+class Balance(Base):
+    __tablename__ = "balances"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    amount = Column(Float, default=0.0)
+    currency = Column(String, default="EUR")
+    last_updated = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", back_populates="balance")
 
 class CategoryMemory(Base):
     __tablename__ = "category_memory"

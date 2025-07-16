@@ -17,6 +17,7 @@ from handlers.edit_handler import edit_command, handle_edit_callback
 from handlers.settings_handler import settings_command, handle_settings_callback
 from handlers.notifications_handler import (notifications_command, handle_notifications_callback,
                                             handle_time_input, handle_salary_date_input)
+from handlers.balance_handler import balance_command, handle_balance_callback
 from services.notification_scheduler import NotificationScheduler
 import config
 
@@ -45,6 +46,7 @@ async def set_bot_commands(application: Application) -> None:
         BotCommand("categories", "Категории"),
         BotCommand("settings", "Настройки"),
         BotCommand("notifications", "Уведомления"),
+        BotCommand("balance", "Баланс"),
     ]
 
     await application.bot.set_my_commands(commands)
@@ -139,6 +141,10 @@ async def handle_callback(update, context):
     # Обработка кнопок настроек
     elif data.startswith("settings_") or data.startswith("set_lang_"):
         await handle_settings_callback(update, context)
+    
+    # Обработка кнопок баланса
+    elif data.startswith("balance_"):
+        await handle_balance_callback(update, context)
 
 
 def main() -> None:
@@ -163,6 +169,7 @@ def main() -> None:
     application.add_handler(CommandHandler("edit", edit_command))
     application.add_handler(CommandHandler("settings", settings_command))
     application.add_handler(CommandHandler("notifications", notifications_command))
+    application.add_handler(CommandHandler("balance", balance_command))
 
     # Обработчики callback-кнопок и сообщений
     application.add_handler(CallbackQueryHandler(handle_callback))

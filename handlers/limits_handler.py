@@ -221,6 +221,7 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             keyboard = [
                 [InlineKeyboardButton("📅 Еженедельно", callback_data=f"limits_period_weekly_{category_id}")],
                 [InlineKeyboardButton("📊 Ежемесячно", callback_data=f"limits_period_monthly_{category_id}")],
+                [InlineKeyboardButton("🗓 Конкретная дата", callback_data=f"limits_period_custom_{category_id}")],
                 [InlineKeyboardButton("🔙 Назад", callback_data="limits_add")]
             ]
             
@@ -247,6 +248,25 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
                     "Категория не найдена.",
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
+                return
+            
+            if period == "custom":
+                # Для кастомного периода сначала выбираем дату
+                context.user_data['limit_date_selection'] = {
+                    'category_id': category_id,
+                    'period': period
+                }
+                
+                # Инициализируем выбор даты
+                context.user_data['date_selection'] = {
+                    'limit_id': None,  # Для нового лимита
+                    'category_id': category_id,
+                    'day': None,
+                    'month': None,
+                    'year': None
+                }
+                
+                await _show_day_selection_for_new_limit(query, context, category)
                 return
             
             period_text = "неделю" if period == "weekly" else "месяц"
@@ -603,6 +623,100 @@ async def _show_day_selection(query, context: ContextTypes.DEFAULT_TYPE, categor
     )
 
 
+async def _show_day_selection_for_new_limit(query, context: ContextTypes.DEFAULT_TYPE, category):
+    """Показать выбор дня для нового лимита"""
+    keyboard = []
+    
+    # Создаем кнопки для дней 1-31
+    for i in range(1, 32, 7):  # По 7 дней в строке
+        row = []
+        for day in range(i, min(i + 7, 32)):
+            row.append(InlineKeyboardButton(
+                str(day),
+                callback_data=f"date_day_{day}"
+            ))
+        keyboard.append(row)
+    
+    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data=f"limits_add_cat_{category.id}")])
+    
+    await query.edit_message_text(
+        f"📅 **Выбор даты для лимита**\n\n"
+        f"Категория: {category.name}\n\n"
+        f"**Шаг 1/3**: Выберите день:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='Markdown'
+    )
+
+
+async def _show_month_selection_for_new_limit(query, context: ContextTypes.DEFAULT_TYPE, category):
+    """Показать выбор месяца для нового лимита"""
+    months = [
+        "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+        "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
+    ]
+    
+    keyboard = []
+    
+    # Создаем кнопки для месяцев по 3 в строке
+    for i in range(0, 12, 3):
+        row = []
+        for month_idx in range(i, min(i + 3, 12)):
+            month_num = month_idx + 1
+            row.append(InlineKeyboardButton(
+                months[month_idx],
+                callback_data=f"date_month_{month_num}"
+            ))
+        keyboard.append(row)
+    
+    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="date_back_to_day")])
+    
+    selected_day = context.user_data['date_selection']['day']
+    
+    await query.edit_message_text(
+        f"📅 **Выбор даты для лимита**\n\n"
+        f"Категория: {category.name}\n\n"
+        f"**Шаг 2/3**: Выберите месяц:\n"
+        f"Выбранный день: {selected_day}",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='Markdown'
+    )
+
+
+async def _show_year_selection_for_new_limit(query, context: ContextTypes.DEFAULT_TYPE, category):
+    """Показать выбор года для нового лимита"""
+    current_year = datetime.now().year
+    years = list(range(current_year, current_year + 5))  # Текущий год + 4 следующих
+    
+    keyboard = []
+    
+    # Создаем кнопки для годов по 2 в строке
+    for i in range(0, len(years), 2):
+        row = []
+        for year_idx in range(i, min(i + 2, len(years))):
+            year = years[year_idx]
+            row.append(InlineKeyboardButton(
+                str(year),
+                callback_data=f"date_year_{year}"
+            ))
+        keyboard.append(row)
+    
+    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="date_back_to_month")])
+    
+    selected_day = context.user_data['date_selection']['day']
+    selected_month = context.user_data['date_selection']['month']
+    month_names = ["", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+                   "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
+    
+    await query.edit_message_text(
+        f"📅 **Выбор даты для лимита**\n\n"
+        f"Категория: {category.name}\n\n"
+        f"**Шаг 3/3**: Выберите год:\n"
+        f"Выбранная дата: {selected_day} {month_names[selected_month]}",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='Markdown'
+    )
+
+
 async def _show_month_selection(query, context: ContextTypes.DEFAULT_TYPE, category, limit):
     """Показать выбор месяца"""
     months = [
@@ -689,33 +803,108 @@ async def handle_date_selection_callback(update: Update, context: ContextTypes.D
         )
         return
     
+    # Дополнительная проверка данных
+    date_selection = context.user_data['date_selection']
+    if 'category_id' not in date_selection:
+        logger.error(f"Нет category_id в date_selection: {date_selection}")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await query.edit_message_text(
+            "❌ Ошибка данных сессии. Попробуйте снова.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+    
     db = get_db_session()
     try:
         limit_id = context.user_data['date_selection']['limit_id']
-        limit = db.query(Limit).filter(
-            Limit.id == limit_id,
-            Limit.user_id == query.from_user.id
-        ).first()
         
-        if not limit:
+        # Получаем пользователя из базы данных
+        user = db.query(User).filter(User.telegram_id == query.from_user.id).first()
+        if not user:
             keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await query.edit_message_text(
-                "Лимит не найден.",
+                "Пользователь не найден.",
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             return
         
-        category = db.query(Category).filter(Category.id == limit.category_id).first()
+        # Если limit_id None, значит это новый лимит
+        if limit_id is None:
+            # Для нового лимита получаем категорию
+            category_id = context.user_data['date_selection']['category_id']
+            logger.info(f"Ищем категорию для нового лимита: category_id={category_id} (type: {type(category_id)}), user_id={user.id}")
+            
+            # Убедимся, что category_id является числом
+            try:
+                category_id = int(category_id)
+            except (ValueError, TypeError):
+                logger.error(f"Неверный тип category_id: {category_id}")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "❌ Ошибка данных категории. Попробуйте снова.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(
+                Category.id == category_id,
+                Category.user_id == user.id
+            ).first()
+            
+            if not category:
+                # Дополнительная отладка
+                all_categories = db.query(Category).filter(Category.user_id == user.id).all()
+                logger.error(f"Категория не найдена! category_id={category_id}, user_id={user.id}")
+                logger.error(f"Доступные категории: {[(c.id, c.name) for c in all_categories]}")
+                
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    f"Категория не найдена. (ID: {category_id}, User: {user.id})\n"
+                    f"Доступные ID: {[c.id for c in all_categories]}",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            limit = None  # Для нового лимита
+            
+        else:
+            # Для существующего лимита
+            limit = db.query(Limit).filter(
+                Limit.id == limit_id,
+                Limit.user_id == user.id
+            ).first()
+            
+            if not limit:
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return
+            
+            category = db.query(Category).filter(Category.id == limit.category_id).first()
         
         if data.startswith("date_day_"):
             day = int(data.split("_")[2])
             context.user_data['date_selection']['day'] = day
-            await _show_month_selection(query, context, category, limit)
+            
+            if limit is None:
+                # Для нового лимита
+                await _show_month_selection_for_new_limit(query, context, category)
+            else:
+                # Для существующего лимита
+                await _show_month_selection(query, context, category, limit)
             
         elif data.startswith("date_month_"):
             month = int(data.split("_")[2])
             context.user_data['date_selection']['month'] = month
-            await _show_year_selection(query, context, category, limit)
+            
+            if limit is None:
+                # Для нового лимита
+                await _show_year_selection_for_new_limit(query, context, category)
+            else:
+                # Для существующего лимита
+                await _show_year_selection(query, context, category, limit)
             
         elif data.startswith("date_year_"):
             year = int(data.split("_")[2])
@@ -740,23 +929,50 @@ async def handle_date_selection_callback(update: Update, context: ContextTypes.D
                     )
                     return
                 
-                # Обновляем лимит
-                limit.period = 'custom'
-                limit.end_date = selected_date
-                db.commit()
-                
-                keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="settings_back")]]
-                await query.edit_message_text(
-                    f"✅ **Дата лимита установлена!**\n\n"
-                    f"Категория: {category.name}\n"
-                    f"Лимит: {limit.amount} {limit.currency}\n"
-                    f"Действует до: {selected_date.strftime('%d.%m.%Y')}",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
-                    parse_mode='Markdown'
-                )
-                
-                # Очищаем временные данные
-                context.user_data.pop('date_selection', None)
+                if limit is None:
+                    # Для нового лимита - сохраняем дату и переходим к вводу суммы
+                    context.user_data['limit_date_selection']['end_date'] = selected_date
+                    
+                    keyboard = [[InlineKeyboardButton("❌ Отмена", callback_data="limits_add")]]
+                    await query.edit_message_text(
+                        f"📝 **Установка лимита для '{category.name}'**\n\n"
+                        f"Дата окончания: {selected_date.strftime('%d.%m.%Y')}\n\n"
+                        f"Отправьте сумму лимита с валютой, например:\n"
+                        f"`500 EUR` или `300 USD`\n\n"
+                        f"💡 Или отправьте /cancel для отмены",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                    
+                    # Устанавливаем режим ожидания суммы лимита
+                    context.user_data['waiting_for_limit'] = {
+                        'category_id': category.id,
+                        'period': 'custom',
+                        'end_date': selected_date
+                    }
+                    
+                    # Очищаем временные данные выбора даты
+                    context.user_data.pop('date_selection', None)
+                    context.user_data.pop('limit_date_selection', None)
+                    
+                else:
+                    # Для существующего лимита - обновляем
+                    limit.period = 'custom'
+                    limit.end_date = selected_date
+                    db.commit()
+                    
+                    keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="settings_back")]]
+                    await query.edit_message_text(
+                        f"✅ **Дата лимита установлена!**\n\n"
+                        f"Категория: {category.name}\n"
+                        f"Лимит: {limit.amount} {limit.currency}\n"
+                        f"Действует до: {selected_date.strftime('%d.%m.%Y')}",
+                        reply_markup=InlineKeyboardMarkup(keyboard),
+                        parse_mode='Markdown'
+                    )
+                    
+                    # Очищаем временные данные
+                    context.user_data.pop('date_selection', None)
                 
             except ValueError:
                 keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="date_back_to_year")]]
@@ -770,13 +986,22 @@ async def handle_date_selection_callback(update: Update, context: ContextTypes.D
                 return
                 
         elif data == "date_back_to_day":
-            await _show_day_selection(query, context, category, limit)
+            if limit is None:
+                await _show_day_selection_for_new_limit(query, context, category)
+            else:
+                await _show_day_selection(query, context, category, limit)
             
         elif data == "date_back_to_month":
-            await _show_month_selection(query, context, category, limit)
+            if limit is None:
+                await _show_month_selection_for_new_limit(query, context, category)
+            else:
+                await _show_month_selection(query, context, category, limit)
             
         elif data == "date_back_to_year":
-            await _show_year_selection(query, context, category, limit)
+            if limit is None:
+                await _show_year_selection_for_new_limit(query, context, category)
+            else:
+                await _show_year_selection(query, context, category, limit)
             
     finally:
         db.close()

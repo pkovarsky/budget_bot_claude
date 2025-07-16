@@ -3,12 +3,13 @@ from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from database import get_db_session, User, Category, Subcategory, Transaction, Limit
+from database import get_db_session, User, Category, Subcategory, Transaction, Limit, Balance
 from services.openai_service import OpenAIService
 from services.category_memory_service import CategoryMemoryService
 from utils.parsers import parse_transaction
 from utils.localization import get_message
 from services.emoji_service import EmojiService
+from services.balance_service import BalanceService
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class EnhancedTransactionHandler:
     def __init__(self):
         self.openai_service = OpenAIService()
         self.memory_service = CategoryMemoryService()
+        self.balance_service = BalanceService()
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка текстовых сообщений для парсинга транзакций с улучшенным UI"""
@@ -130,7 +132,36 @@ class EnhancedTransactionHandler:
             amount, currency, description, is_income = transaction_data
 
             
-            # Получаем предлагаемую категорию через OpenAI
+            # Для доходов (с +) не нужен выбор категории - добавляем к балансу
+            if is_income:
+                # Создаем транзакцию дохода (без категории)
+                transaction = Transaction(
+                    user_id=user.id,
+                    category_id=None,  # Доходы не имеют категории
+                    amount=amount,  # Для доходов amount уже положительный
+                    currency=currency,
+                    description=description
+                )
+                db.add(transaction)
+                db.commit()
+                
+                # Добавляем к балансу
+                balance = self.balance_service.add_income(user.id, amount, currency)
+                
+                # Показываем уведомление о добавлении дохода
+                name = user.name or "бро"
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await update.message.reply_text(
+                    f"✅ {name}, доход добавлен к балансу!\n\n"
+                    f"💰 **{description}**\n"
+                    f"💵 Сумма: +{amount} {currency}\n"
+                    f"💳 Текущий баланс: {balance.amount} {currency}",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Для расходов получаем предлагаемую категорию через OpenAI
             suggested_category = await self._suggest_category(description, user.id, db)
             
             # Сохраняем данные транзакции для последующего создания
@@ -407,6 +438,58 @@ class EnhancedTransactionHandler:
                 )
         
         return "\n".join(warning_messages), limit_exceeded
+    
+    async def _get_limit_info(self, user_id: int, category_id: int, currency: str, db) -> str:
+        """Получить информацию о лимите для отображения"""
+        limits = db.query(Limit).filter(
+            Limit.user_id == user_id,
+            Limit.category_id == category_id,
+            Limit.currency == currency
+        ).all()
+        
+        if not limits:
+            return ""
+        
+        limit_info_lines = []
+        
+        for limit in limits:
+            # Определяем период для расчета
+            if limit.period == 'weekly':
+                # Неделя - последние 7 дней
+                period_start = datetime.now() - timedelta(days=7)
+                period_text = "неделю"
+            elif limit.period == 'custom' and hasattr(limit, 'end_date') and limit.end_date:
+                # Кастомный период - от создания лимита до конечной даты
+                period_start = limit.created_at if hasattr(limit, 'created_at') else datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                period_text = f"до {limit.end_date.strftime('%d.%m.%Y')}"
+            else:
+                # Месяц - текущий месяц
+                period_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                period_text = "месяц"
+            
+            # Считаем потраченное
+            period_expenses = db.query(Transaction).filter(
+                Transaction.user_id == user_id,
+                Transaction.category_id == category_id,
+                Transaction.currency == currency,
+                Transaction.amount < 0,
+                Transaction.created_at >= period_start
+            ).all()
+            
+            total_spent = sum(abs(transaction.amount) for transaction in period_expenses)
+            
+            # Формируем информацию о лимите
+            limit_emoji = "💳"
+            if total_spent > limit.amount:
+                limit_emoji = "🚨"
+            elif total_spent > limit.amount * 0.8:
+                limit_emoji = "⚠️"
+            
+            limit_info_lines.append(
+                f"{limit_emoji} **Лимит ({period_text}):** {total_spent:.2f}/{limit.amount:.2f} {currency}"
+            )
+        
+        return "\n" + "\n".join(limit_info_lines) if limit_info_lines else ""
 
     async def handle_subcategory_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка выбора подкатегории"""
@@ -744,6 +827,15 @@ class EnhancedTransactionHandler:
             db.add(transaction)
             db.commit()
             
+            # Обновляем баланс для расходов
+            balance = None
+            if not transaction_data['is_income']:
+                balance = self.balance_service.subtract_expense(
+                    transaction_data['user_id'], 
+                    transaction_data['amount'], 
+                    transaction_data['currency']
+                )
+            
             # Запоминаем связь описания с категорией для будущих предложений
             self.memory_service.remember_category(
                 user_id=transaction_data['user_id'],
@@ -755,6 +847,7 @@ class EnhancedTransactionHandler:
             # Проверка лимитов для расходов
             warning_msg = ""
             limit_exceeded = False
+            limit_info = ""
             if not transaction_data['is_income']:
                 warning_msg, limit_exceeded = await self._check_limits(
                     transaction_data['user_id'], 
@@ -763,9 +856,17 @@ class EnhancedTransactionHandler:
                     transaction_data['currency'], 
                     db
                 )
+                
+                # Получаем информацию о лимите для отображения
+                limit_info = await self._get_limit_info(
+                    transaction_data['user_id'], 
+                    category.id, 
+                    transaction_data['currency'], 
+                    db
+                )
             
             # Персонализированное сообщение
-            name = user.name or "друг"
+            name = user.name or "бро"
             operation_type = get_message("income_added", user.language) if transaction_data['is_income'] else get_message("expense_added", user.language)
             
             category_emoji = category.emoji if hasattr(category, 'emoji') and category.emoji else "📁"
@@ -783,6 +884,15 @@ class EnhancedTransactionHandler:
                 f"{get_message('category', user.language)}: {category_text}\n"
                 f"{get_message('description', user.language)}: {transaction_data['description']}"
             )
+            
+            # Добавляем информацию о балансе для расходов
+            if balance:
+                balance_emoji = "💰" if balance.amount >= 0 else "💸"
+                response_text += f"\n\n{balance_emoji} **Общий баланс:** {balance.amount:.2f} {balance.currency}"
+            
+            # Добавляем информацию о лимите
+            if limit_info:
+                response_text += f"\n{limit_info}"
             
             # Добавляем кнопку "На главную"
             keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
@@ -955,6 +1065,7 @@ class EnhancedTransactionHandler:
         else:
             category_id = limit_data.get('category_id')
             period = limit_data.get('period', 'monthly')
+            end_date = limit_data.get('end_date')
         
         # Парсинг суммы и валюты
         result = parse_amount_and_currency(text)
@@ -1006,18 +1117,27 @@ class EnhancedTransactionHandler:
                 category_id=category_id,
                 amount=amount,
                 currency=currency,
-                period=period
+                period=period,
+                end_date=end_date if period == 'custom' else None
             )
             
             db.add(limit)
             db.commit()
             
-            name = user.name or "друг"
-            period_text = "неделю" if period == "weekly" else "месяц"
+            name = user.name or "бро"
+            
+            if period == 'custom':
+                period_text = f"до {end_date.strftime('%d.%m.%Y')}"
+            else:
+                period_text = "неделю" if period == "weekly" else "месяц"
+                period_text = f"за {period_text}"
+            
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await update.message.reply_text(
                 f"✅ {name}, лимит установлен!\n\n"
                 f"Категория: {category.name}\n"
-                f"Лимит: {amount} {currency} за {period_text}",
+                f"Лимит: {amount} {currency} {period_text}",
+                reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
             
@@ -1527,6 +1647,15 @@ class EnhancedTransactionHandler:
             db.add(transaction)
             db.commit()
             
+            # Обновляем баланс для расходов
+            balance = None
+            if not transaction_data['is_income']:
+                balance = self.balance_service.subtract_expense(
+                    transaction_data['user_id'], 
+                    transaction_data['amount'], 
+                    transaction_data['currency']
+                )
+            
             # Запоминаем связь описания с категорией для будущих предложений
             self.memory_service.remember_category(
                 user_id=transaction_data['user_id'],
@@ -1538,6 +1667,7 @@ class EnhancedTransactionHandler:
             # Проверка лимитов для расходов
             warning_msg = ""
             limit_exceeded = False
+            limit_info = ""
             if not transaction_data['is_income']:
                 warning_msg, limit_exceeded = await self._check_limits(
                     transaction_data['user_id'], 
@@ -1546,9 +1676,17 @@ class EnhancedTransactionHandler:
                     transaction_data['currency'], 
                     db
                 )
+                
+                # Получаем информацию о лимите для отображения
+                limit_info = await self._get_limit_info(
+                    transaction_data['user_id'], 
+                    category.id, 
+                    transaction_data['currency'], 
+                    db
+                )
             
             # Персонализированное сообщение
-            name = user.name or "друг"
+            name = user.name or "бро"
             operation_type = get_message("income_added", user.language) if transaction_data['is_income'] else get_message("expense_added", user.language)
             
             response_text = (
@@ -1559,6 +1697,15 @@ class EnhancedTransactionHandler:
                 f"{get_message('category', user.language)}: {category.emoji} {category.name}\n"
                 f"{get_message('description', user.language)}: {transaction_data['description']}"
             )
+            
+            # Добавляем информацию о балансе для расходов
+            if balance:
+                balance_emoji = "💰" if balance.amount >= 0 else "💸"
+                response_text += f"\n\n{balance_emoji} **Общий баланс:** {balance.amount:.2f} {balance.currency}"
+            
+            # Добавляем информацию о лимите
+            if limit_info:
+                response_text += f"\n{limit_info}"
             
             # Добавляем кнопку "На главную"
             keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
