@@ -150,7 +150,7 @@ class EnhancedTransactionHandler:
         category_names = [cat.name for cat in categories]
         
         # Сначала проверяем память
-        memory_suggestion = self.memory_service.suggest_category(user.id, description)
+        memory_suggestion = self.memory_service.suggest_category(user_id, description)
         if memory_suggestion and memory_suggestion.get('confidence', 0) >= 0.8:
             logger.info(f"Найдено в памяти: {memory_suggestion['category_name']} (уверенность: {memory_suggestion['confidence']:.2f})")
             return memory_suggestion['category_name']
