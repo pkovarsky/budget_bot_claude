@@ -883,38 +883,6 @@ class EnhancedTransactionHandler:
                     parse_mode='Markdown'
                 )
                 
-            elif edit_data['field'] == 'date':
-                # Обработка конкретной даты
-                from datetime import datetime
-                try:
-                    # Парсинг даты в формате ДД.ММ.ГГГГ
-                    date_obj = datetime.strptime(text, '%d.%m.%Y')
-                    if date_obj <= datetime.now():
-                        await update.message.reply_text("❌ Дата должна быть в будущем.")
-                        return
-                    
-                    # Обновляем лимит с конкретной датой
-                    limit.period = 'custom'
-                    limit.end_date = date_obj
-                    db.commit()
-                    
-                    keyboard = [[InlineKeyboardButton("🔙 К лимитам", callback_data="settings_back")]]
-                    await update.message.reply_text(
-                        f"✅ **Дата лимита установлена!**\n\n"
-                        f"Категория: {category.name}\n"
-                        f"Лимит: {limit.amount} {limit.currency}\n"
-                        f"Действует до: {date_obj.strftime('%d.%m.%Y')}",
-                        reply_markup=InlineKeyboardMarkup(keyboard),
-                        parse_mode='Markdown'
-                    )
-                    
-                except ValueError:
-                    await update.message.reply_text(
-                        "❌ Неверный формат даты. Используйте формат ДД.ММ.ГГГГ\n"
-                        "Например: `31.07.2024`",
-                        parse_mode='Markdown'
-                    )
-                    return
                 
         finally:
             db.close()
