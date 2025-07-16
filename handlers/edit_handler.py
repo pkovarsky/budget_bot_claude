@@ -291,3 +291,77 @@ async def handle_new_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     finally:
         db.close()
         context.user_data.pop('editing_transaction', None)
+
+
+async def edit_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка команды /edit через callback"""
+    from utils.telegram_utils import safe_edit_message, safe_answer_callback
+    
+    query = update.callback_query
+    await safe_answer_callback(query)
+    
+    user_id = update.effective_user.id
+    
+    db = get_db_session()
+    try:
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user:
+            await safe_edit_message(query, get_message("start_first", user.language if user else "ru"))
+            return
+        
+        # Получаем последние 10 транзакций для редактирования
+        transactions = db.query(Transaction).filter(
+            Transaction.user_id == user.id
+        ).order_by(Transaction.created_at.desc()).limit(10).all()
+        
+        if not transactions:
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await safe_edit_message(query,
+                "📝 **Редактирование транзакций**\n\n"
+                "У вас пока нет транзакций для редактирования.",
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            return
+        
+        # Создаем кнопки для каждой транзакции (по 2 в строке)
+        keyboard = []
+        for i in range(0, len(transactions), 2):
+            row = []
+            for j in range(2):
+                if i + j < len(transactions):
+                    transaction = transactions[i + j]
+                    category = db.query(Category).filter(Category.id == transaction.category_id).first()
+                    
+                    # Форматируем дату
+                    date_str = transaction.created_at.strftime("%d.%m")
+                    
+                    # Форматируем сумму
+                    amount_str = f"{transaction.amount:+.0f}"
+                    
+                    # Обрезаем описание
+                    description = transaction.description[:15] + "..." if len(transaction.description) > 15 else transaction.description
+                    
+                    button_text = f"{date_str} {amount_str} {description}"
+                    
+                    row.append(InlineKeyboardButton(
+                        button_text,
+                        callback_data=f"edit_select_{transaction.id}"
+                    ))
+            
+            keyboard.append(row)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await safe_edit_message(query,
+            "📝 **Редактирование транзакций**\n\n"
+            "Выберите транзакцию для редактирования:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        
+    finally:
+        db.close()

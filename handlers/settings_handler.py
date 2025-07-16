@@ -114,6 +114,21 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
             )
             context.user_data['setting_name'] = True
 
+        elif data == "settings_categories":
+            # Перейти к категориям
+            from handlers.categories_handler import categories_command_callback
+            await categories_command_callback(update, context)
+            
+        elif data == "settings_limits":
+            # Перейти к лимитам
+            from handlers.limits_handler import limits_command_callback
+            await limits_command_callback(update, context)
+            
+        elif data == "settings_notifications":
+            # Перейти к уведомлениям
+            from handlers.notifications_handler import notifications_command_callback
+            await notifications_command_callback(update, context)
+            
         elif data == "settings_back":
             # Вернуться к настройкам
             context.user_data.pop('setting_name', None)
@@ -189,8 +204,11 @@ async def settings_command_callback(update: Update, context: ContextTypes.DEFAUL
         )
         
         keyboard = [
-            [InlineKeyboardButton("📝 Изменить имя", callback_data="settings_name")],
-            [InlineKeyboardButton("🌍 Изменить язык", callback_data="settings_language")],
+            [InlineKeyboardButton("📝 Изменить имя", callback_data="settings_name"),
+             InlineKeyboardButton("🌍 Изменить язык", callback_data="settings_language")],
+            [InlineKeyboardButton("📁 Категории", callback_data="settings_categories"),
+             InlineKeyboardButton("💰 Лимиты", callback_data="settings_limits")],
+            [InlineKeyboardButton("🔔 Уведомления", callback_data="settings_notifications")],
             [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
         ]
         

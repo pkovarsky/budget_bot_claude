@@ -34,11 +34,11 @@ async def notifications_command(update: Update, context: ContextTypes.DEFAULT_TY
         salary_date = f"{user.salary_date} числа" if user.salary_date else "не установлена"
         
         keyboard = [
-            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily")],
-            [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
-            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
-            [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
-            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily"),
+             InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
+            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary"),
+             InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -112,7 +112,7 @@ async def _show_daily_reminder_settings(query, user: User):
             callback_data="daily_toggle"
         )],
         [InlineKeyboardButton("⏰ Изменить время", callback_data="daily_time")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -146,7 +146,7 @@ async def _show_budget_notification_settings(query, user: User):
         )],
         [InlineKeyboardButton("⏰ Изменить время", callback_data="budget_time")],
         [InlineKeyboardButton("📊 Изменить частоту", callback_data="budget_frequency")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -169,7 +169,7 @@ async def _show_salary_date_settings(query, user: User):
     
     keyboard = [
         [InlineKeyboardButton("📅 Установить дату", callback_data="salary_set")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -203,7 +203,7 @@ async def _show_timezone_settings(query, user: User):
             callback_data=f"tz_{tz_code}"
         )])
     
-    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
+    keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="settings_back")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -265,7 +265,7 @@ async def _handle_budget_notification_callback(query, context: ContextTypes.DEFA
                 [InlineKeyboardButton("📅 Ежедневно", callback_data="budget_freq_daily")],
                 [InlineKeyboardButton("📅 Еженедельно", callback_data="budget_freq_weekly")],
                 [InlineKeyboardButton("❌ Выключить", callback_data="budget_freq_none")],
-                [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+                [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
             ]
             
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -329,7 +329,7 @@ async def _show_main_notifications_menu(query, user: User):
         [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
         [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
         [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
-        [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+        [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -453,11 +453,11 @@ async def notifications_command_callback(update: Update, context: ContextTypes.D
         budget_time = user.budget_notification_time.strftime("%H:%M") if user.budget_notification_time else "не установлено"
         
         keyboard = [
-            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily")],
-            [InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
-            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary")],
-            [InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
-            [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
+            [InlineKeyboardButton("📅 Напоминания о тратах", callback_data="notif_daily"),
+             InlineKeyboardButton("💰 Уведомления о бюджете", callback_data="notif_budget")],
+            [InlineKeyboardButton("💵 Дата зарплаты", callback_data="notif_salary"),
+             InlineKeyboardButton("🌍 Часовой пояс", callback_data="notif_timezone")],
+            [InlineKeyboardButton("🔙 Назад", callback_data="settings_back")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)

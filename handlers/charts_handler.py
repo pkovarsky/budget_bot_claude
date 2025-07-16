@@ -25,8 +25,8 @@ async def charts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return
         
         keyboard = [
-            [InlineKeyboardButton("🥧 Расходы по категориям", callback_data="chart_pie")],
-            [InlineKeyboardButton("📈 Тренд расходов", callback_data="chart_trends")],
+            [InlineKeyboardButton("🥧 Расходы по категориям", callback_data="chart_pie"),
+             InlineKeyboardButton("📈 Тренд расходов", callback_data="chart_trends")],
             [InlineKeyboardButton("📊 Сравнение по месяцам", callback_data="chart_monthly")],
             [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
         ]
@@ -230,8 +230,8 @@ async def charts_command_callback(update: Update, context: ContextTypes.DEFAULT_
             return
         
         keyboard = [
-            [InlineKeyboardButton("🥧 Расходы по категориям", callback_data="chart_pie")],
-            [InlineKeyboardButton("📈 Тренд расходов", callback_data="chart_trends")],
+            [InlineKeyboardButton("🥧 Расходы по категориям", callback_data="chart_pie"),
+             InlineKeyboardButton("📈 Тренд расходов", callback_data="chart_trends")],
             [InlineKeyboardButton("📊 Сравнение по месяцам", callback_data="chart_monthly")],
             [InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")]
         ]

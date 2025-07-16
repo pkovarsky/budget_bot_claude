@@ -161,6 +161,9 @@ async def handle_main_menu_callback(update: Update, context: ContextTypes.DEFAUL
     elif data == "main_settings":
         from handlers.settings_handler import settings_command_callback
         await settings_command_callback(update, context)
+    elif data == "main_edit":
+        from handlers.edit_handler import edit_command_callback
+        await edit_command_callback(update, context)
     elif data == "main_help":
         await help_command_callback(update, context)
 
@@ -246,13 +249,10 @@ async def return_to_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
         keyboard = [
             [InlineKeyboardButton("📊 Статистика", callback_data="main_stats"),
              InlineKeyboardButton("📈 Графики", callback_data="main_charts")],
-            [InlineKeyboardButton("📁 Категории", callback_data="main_categories"),
-             InlineKeyboardButton("💰 Лимиты", callback_data="main_limits")],
             [InlineKeyboardButton("📤 Экспорт", callback_data="main_export"),
              InlineKeyboardButton("✏️ Редактировать", callback_data="main_edit")],
-            [InlineKeyboardButton("🔔 Уведомления", callback_data="main_notifications"),
-             InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings")],
-            [InlineKeyboardButton("❓ Справка", callback_data="main_help")]
+            [InlineKeyboardButton("⚙️ Настройки", callback_data="main_settings"),
+             InlineKeyboardButton("❓ Справка", callback_data="main_help")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)

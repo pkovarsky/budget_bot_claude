@@ -113,7 +113,7 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             if not category.is_default:
                 keyboard.append([InlineKeyboardButton("🗑 Удалить категорию", callback_data=f"cat_delete_confirm_{category_id}")])
             
-            keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
+            keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="settings_back")])
             
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -403,7 +403,7 @@ async def categories_command_callback(update: Update, context: ContextTypes.DEFA
                 callback_data=f"cat_view_{category.id}"
             )])
         
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_main")])
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="settings_back")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
