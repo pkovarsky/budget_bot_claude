@@ -17,7 +17,11 @@ async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text(get_message("start_first", user.language if user else "ru"))
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                get_message("start_first", user.language if user else "ru"),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Создаем клавиатуру выбора периода
@@ -51,7 +55,11 @@ async def edit_command_callback(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text(get_message("start_first", user.language if user else "ru"))
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await query.edit_message_text(
+                get_message("start_first", user.language if user else "ru"),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Создаем клавиатуру выбора периода
@@ -86,7 +94,11 @@ async def handle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text(get_message("start_first", user.language if user else "ru"))
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await query.edit_message_text(
+                get_message("start_first", user.language if user else "ru"),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Определяем период
@@ -128,7 +140,11 @@ async def handle_edit_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             ).first()
             
             if not transaction:
-                await query.edit_message_text("Транзакция не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Транзакция не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
                 
             # Показываем подтверждение удаления
@@ -215,7 +231,11 @@ async def show_transaction_edit_options(query, user, transaction_id: int, db):
     ).first()
     
     if not transaction:
-        await query.edit_message_text("Транзакция не найдена.")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await query.edit_message_text(
+            "Транзакция не найдена.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     category = db.query(Category).filter(Category.id == transaction.category_id).first()
@@ -262,7 +282,11 @@ async def delete_transaction(query, user, transaction_id: int, db):
     ).first()
     
     if not transaction:
-        await query.edit_message_text("Транзакция не найдена.")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await query.edit_message_text(
+            "Транзакция не найдена.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     # Сохраняем информацию о транзакции для сообщения
@@ -295,10 +319,18 @@ async def handle_new_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     try:
         new_amount = float(update.message.text.replace(',', '.'))
         if new_amount <= 0:
-            await update.message.reply_text("Сумма должна быть больше нуля.")
+            keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data=f"edit_transaction_{transaction_id}")]]
+            await update.message.reply_text(
+                "Сумма должна быть больше нуля.",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
     except ValueError:
-        await update.message.reply_text("Некорректная сумма. Введите число.")
+        keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data=f"edit_transaction_{transaction_id}")]]
+        await update.message.reply_text(
+            "Некорректная сумма. Введите число.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     db = get_db_session()
@@ -310,7 +342,11 @@ async def handle_new_amount(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         ).first()
         
         if not transaction:
-            await update.message.reply_text("Транзакция не найдена.")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Транзакция не найдена.",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Сохраняем знак (доход/расход)

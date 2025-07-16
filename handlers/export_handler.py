@@ -19,14 +19,22 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Получаем все транзакции пользователя
         transactions = db.query(Transaction).filter(Transaction.user_id == user.id).all()
         
         if not transactions:
-            await update.message.reply_text("У вас нет транзакций для экспорта.")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "У вас нет транзакций для экспорта.",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
             
         await update.message.reply_text("📊 Подготавливаю экспорт данных...")
@@ -98,8 +106,10 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
     except Exception as e:
         logger.error(f"Ошибка при экспорте: {e}")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
         await update.message.reply_text(
-            "Произошла ошибка при создании экспорта. Попробуйте позже."
+            "Произошла ошибка при создании экспорта. Попробуйте позже.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
     finally:
         db.close()

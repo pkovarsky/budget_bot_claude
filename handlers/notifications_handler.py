@@ -21,7 +21,11 @@ async def notifications_command(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Статус настроек
@@ -356,7 +360,11 @@ async def handle_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     # Проверка на отмену
     if text.lower() in ['/cancel', 'отмена', 'cancel']:
         context.user_data.pop(f'setting_{setting_type}_time', None)
-        await update.message.reply_text("❌ Установка времени отменена.")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await update.message.reply_text(
+            "❌ Установка времени отменена.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     # Парсинг времени
@@ -373,7 +381,11 @@ async def handle_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         if setting_type == "daily":
@@ -386,7 +398,8 @@ async def handle_time_input(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         db.commit()
         context.user_data.pop(f'setting_{setting_type}_time', None)
         
-        await update.message.reply_text(message)
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await update.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard))
         
     finally:
         db.close()
@@ -399,7 +412,11 @@ async def handle_salary_date_input(update: Update, context: ContextTypes.DEFAULT
     # Проверка на отмену
     if text.lower() in ['/cancel', 'отмена', 'cancel']:
         context.user_data.pop('setting_salary_date', None)
-        await update.message.reply_text("❌ Установка даты зарплаты отменена.")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await update.message.reply_text(
+            "❌ Установка даты зарплаты отменена.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     # Парсинг даты
@@ -408,8 +425,10 @@ async def handle_salary_date_input(update: Update, context: ContextTypes.DEFAULT
         if day < 1 or day > 31:
             raise ValueError("День должен быть от 1 до 31")
     except ValueError:
+        keyboard = [[InlineKeyboardButton("🔄 Попробовать снова", callback_data="notif_salary")]]
         await update.message.reply_text(
-            "❌ Неверный формат даты. Укажите число от 1 до 31"
+            "❌ Неверный формат даты. Укажите число от 1 до 31",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return
     
@@ -418,14 +437,22 @@ async def handle_salary_date_input(update: Update, context: ContextTypes.DEFAULT
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         user.salary_date = day
         db.commit()
         context.user_data.pop('setting_salary_date', None)
         
-        await update.message.reply_text(f"✅ Дата зарплаты установлена на {day} число каждого месяца")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await update.message.reply_text(
+            f"✅ Дата зарплаты установлена на {day} число каждого месяца",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         
     finally:
         db.close()

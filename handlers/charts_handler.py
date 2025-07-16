@@ -21,7 +21,11 @@ async def charts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         keyboard = [
@@ -63,7 +67,8 @@ async def handle_charts_callback(update: Update, context: ContextTypes.DEFAULT_T
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await safe_edit_message(query, "Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await safe_edit_message(query, "Сначала выполните команду /start", reply_markup=InlineKeyboardMarkup(keyboard))
             return
         
         if data == "chart_pie":
@@ -128,7 +133,8 @@ async def _handle_period_selection(query, context: ContextTypes.DEFAULT_TYPE, da
     chart_type = context.user_data.get('chart_type')
     
     if not chart_type:
-        await safe_edit_message(query, "❌ Ошибка: тип графика не определен")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await safe_edit_message(query, "❌ Ошибка: тип графика не определен", reply_markup=InlineKeyboardMarkup(keyboard))
         return
     
     await safe_edit_message(query, "⏳ Генерирую график...")
@@ -149,7 +155,8 @@ async def _handle_period_selection(query, context: ContextTypes.DEFAULT_TYPE, da
             )
             chart_name = "тренда расходов"
         else:
-            await safe_edit_message(query, "❌ Неизвестный тип графика")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await safe_edit_message(query, "❌ Неизвестный тип графика", reply_markup=InlineKeyboardMarkup(keyboard))
             return
         
         if chart_buffer:
@@ -226,7 +233,8 @@ async def charts_command_callback(update: Update, context: ContextTypes.DEFAULT_
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await safe_edit_message(query, "Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await safe_edit_message(query, "Сначала выполните команду /start", reply_markup=InlineKeyboardMarkup(keyboard))
             return
         
         keyboard = [

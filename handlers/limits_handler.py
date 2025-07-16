@@ -17,7 +17,11 @@ async def limits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Получаем все лимиты пользователя
@@ -98,7 +102,11 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await query.edit_message_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         if data == "limits_view":
@@ -186,7 +194,11 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             ).first()
             
             if not category:
-                await query.edit_message_text("Категория не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Категория не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             # Показываем выбор периода
@@ -214,7 +226,11 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             ).first()
             
             if not category:
-                await query.edit_message_text("Категория не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Категория не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             period_text = "неделю" if period == "weekly" else "месяц"
@@ -272,7 +288,11 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             ).first()
             
             if not limit:
-                await query.edit_message_text("Лимит не найден.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             category = db.query(Category).filter(Category.id == limit.category_id).first()
@@ -299,7 +319,11 @@ async def handle_limits_callback(update: Update, context: ContextTypes.DEFAULT_T
             ).first()
             
             if not limit:
-                await query.edit_message_text("Лимит не найден.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Лимит не найден.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             category = db.query(Category).filter(Category.id == limit.category_id).first()

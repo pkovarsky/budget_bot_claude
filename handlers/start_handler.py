@@ -290,11 +290,8 @@ async def ask_for_name(query, user, language: str) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     # Отправляем новое сообщение для выбора имени
-    from telegram import Bot
-    bot = Bot.get_current()
-    await bot.send_message(
-        chat_id=query.message.chat_id,
-        text=f"👋 Хотите указать ваше имя для персонализации?",
+    await query.message.reply_text(
+        text="👋 Хотите указать ваше имя для персонализации?",
         reply_markup=reply_markup
     )
 
@@ -305,7 +302,11 @@ async def handle_name_setup(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await query.answer()
     
     if query.data == "setup_skip_name":
-        await query.edit_message_text("✅ Настройка завершена! Используйте /help для просмотра команд.")
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        await query.edit_message_text(
+            "✅ Настройка завершена! Теперь вы можете использовать бота.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     if query.data.startswith("setup_name_"):
@@ -339,7 +340,11 @@ async def handle_name_input_setup(update: Update, context: ContextTypes.DEFAULT_
     name = update.message.text.strip()
     
     if not name or len(name) > 50:
-        await update.message.reply_text("Имя должно быть от 1 до 50 символов.")
+        keyboard = [[InlineKeyboardButton("🔙 Попробовать снова", callback_data=f"setup_name_{user_id}")]]
+        await update.message.reply_text(
+            "Имя должно быть от 1 до 50 символов.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     db = get_db_session()
@@ -349,9 +354,11 @@ async def handle_name_input_setup(update: Update, context: ContextTypes.DEFAULT_
             user.name = name
             db.commit()
             
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
             await update.message.reply_text(
                 f"✅ Приятно познакомиться, {name}!\n\n"
-                f"Настройка завершена. Используйте /help для просмотра команд.",
+                f"Настройка завершена. Теперь вы можете использовать бота.",
+                reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
         

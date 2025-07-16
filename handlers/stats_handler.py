@@ -18,7 +18,11 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start", 
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         keyboard = [
@@ -53,7 +57,11 @@ async def handle_stats_callback(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await query.edit_message_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         now = datetime.now()
@@ -179,7 +187,11 @@ async def handle_stats_back(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await query.edit_message_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         keyboard = [

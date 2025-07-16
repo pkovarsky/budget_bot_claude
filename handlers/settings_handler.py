@@ -17,7 +17,11 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text(get_message("start_first", "ru"))
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                get_message("start_first", "ru"),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         # Создаем клавиатуру настроек
@@ -66,7 +70,11 @@ async def handle_settings_callback(update: Update, context: ContextTypes.DEFAULT
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text(get_message("start_first", "ru"))
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await query.edit_message_text(
+                get_message("start_first", "ru"),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         if data == "settings_language":
@@ -156,21 +164,31 @@ async def handle_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
     
     if not name or len(name) > 50:
-        await update.message.reply_text("Имя должно быть от 1 до 50 символов.")
+        keyboard = [[InlineKeyboardButton("🔄 Попробовать снова", callback_data="settings_name")]]
+        await update.message.reply_text(
+            "Имя должно быть от 1 до 50 символов.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return
     
     db = get_db_session()
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text(get_message("start_first", "ru"))
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                get_message("start_first", "ru"),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         user.name = name
         db.commit()
         
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
         await update.message.reply_text(
-            get_message("name_updated", user.language, name=name)
+            get_message("name_updated", user.language, name=name),
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
         
     finally:

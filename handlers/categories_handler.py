@@ -16,13 +16,21 @@ async def categories_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await update.message.reply_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         categories = db.query(Category).filter(Category.user_id == user.id).all()
         
         if not categories:
-            await update.message.reply_text("У вас нет категорий. Используйте кнопку для добавления.")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await update.message.reply_text(
+                "У вас нет категорий. Используйте кнопку для добавления.",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
         
         keyboard = []
         for category in categories:
@@ -57,7 +65,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
     try:
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user:
-            await query.edit_message_text("Сначала выполните команду /start")
+            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            await query.edit_message_text(
+                "Сначала выполните команду /start",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
             return
         
         if data == "cat_add":
@@ -81,7 +93,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             ).first()
             
             if not category:
-                await query.edit_message_text("Категория не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Категория не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             # Статистика по категории
@@ -136,11 +152,19 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             ).first()
             
             if not category:
-                await query.edit_message_text("Категория не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Категория не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             if category.is_default:
-                await query.edit_message_text("Нельзя удалить базовую категорию.")
+                keyboard = [[InlineKeyboardButton("🔙 Назад", callback_data="cat_delete")]]
+                await query.edit_message_text(
+                    "Нельзя удалить базовую категорию.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             # Проверяем, есть ли транзакции в этой категории
@@ -181,7 +205,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             ).first()
             
             if not category:
-                await query.edit_message_text("Категория не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Категория не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             # Удаляем лимиты для этой категории
@@ -208,7 +236,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             ).first()
             
             if not category:
-                await query.edit_message_text("Категория не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Категория не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             # Сохраняем ID категории для редактирования
@@ -274,7 +306,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
         elif data.startswith("cat_emoji_select_"):
             category_id = context.user_data.get('editing_category_emoji')
             if not category_id:
-                await query.edit_message_text("❌ Сессия истекла. Попробуйте снова.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "❌ Сессия истекла. Попробуйте снова.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             selected_emoji = data.replace("cat_emoji_select_", "")
@@ -285,7 +321,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
             ).first()
             
             if not category:
-                await query.edit_message_text("Категория не найдена.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "Категория не найдена.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             # Обновляем смайлик
@@ -308,7 +348,11 @@ async def handle_categories_callback(update: Update, context: ContextTypes.DEFAU
         elif data == "cat_more_emojis":
             category_id = context.user_data.get('editing_category_emoji')
             if not category_id:
-                await query.edit_message_text("❌ Сессия истекла. Попробуйте снова.")
+                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                await query.edit_message_text(
+                    "❌ Сессия истекла. Попробуйте снова.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
                 return
             
             # Показываем больше смайликов
