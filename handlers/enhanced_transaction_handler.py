@@ -19,18 +19,263 @@ class EnhancedTransactionHandler:
         self.openai_service = OpenAIService()
         self.memory_service = CategoryMemoryService()
         self.balance_service = BalanceService()
+    
+    def _is_cancel_command(self, text: str) -> bool:
+        """Проверка на команду отмены"""
+        return text.strip().lower() in ['/cancel', 'отмена', 'cancel']
+    
+    async def _handle_cancel_operation(self, update: Update, context: ContextTypes.DEFAULT_TYPE, 
+                                     context_key: str, message: str) -> None:
+        """Обработка отмены операции"""
+        context.user_data.pop(context_key, None)
+        await update.message.reply_text(
+            f"❌ {message}",
+            reply_markup=None
+        )
+    
+    async def _get_user_from_telegram_id(self, telegram_id: int) -> User:
+        """Получить пользователя по telegram_id"""
+        db = get_db_session()
+        try:
+            user = db.query(User).filter(User.telegram_id == telegram_id).first()
+            return user
+        finally:
+            db.close()
+    
+    def _get_main_menu_keyboard(self) -> InlineKeyboardMarkup:
+        """Получить клавиатуру с кнопкой главного меню"""
+        keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+        return InlineKeyboardMarkup(keyboard)
+    
+    def _get_emoji_with_fallback(self, obj, fallback: str = "📁") -> str:
+        """Получить emoji с fallback значением"""
+        return obj.emoji if hasattr(obj, 'emoji') and obj.emoji else fallback
+    
+    def _calculate_limit_period(self, limit: Limit) -> tuple:
+        """Рассчитать период для лимита"""
+        if limit.period == 'weekly':
+            # Неделя - последние 7 дней
+            period_start = datetime.now() - timedelta(days=7)
+            period_text = "неделю"
+        elif limit.period == 'custom' and hasattr(limit, 'end_date') and limit.end_date:
+            # Кастомный период - от создания лимита до конечной даты
+            period_start = limit.created_at if hasattr(limit, 'created_at') else datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            period_text = f"до {limit.end_date.strftime('%d.%m.%Y')}"
+        else:
+            # Месяц - текущий месяц
+            period_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            period_text = "месяц"
+        
+        return period_start, period_text
+    
+    def _create_category_keyboard(self, categories: list, suggested_category: str = None) -> InlineKeyboardMarkup:
+        """Создать клавиатуру для выбора категорий"""
+        keyboard = []
+        
+        # Первой кнопкой идет предлагаемая категория
+        if suggested_category:
+            # Находим предлагаемую категорию и добавляем её первой
+            suggested_cat_obj = None
+            for cat in categories:
+                if cat.name == suggested_category:
+                    suggested_cat_obj = cat
+                    break
+            
+            if suggested_cat_obj:
+                suggested_emoji = self._get_emoji_with_fallback(suggested_cat_obj)
+                keyboard.append([InlineKeyboardButton(
+                    f"✅ {suggested_emoji} {suggested_category} (предлагается)", 
+                    callback_data=f"select_cat_{suggested_category}"
+                )])
+        
+        # Остальные категории
+        for category in categories:
+            if category.name != suggested_category:
+                emoji = self._get_emoji_with_fallback(category)
+                keyboard.append([InlineKeyboardButton(
+                    f"{emoji} {category.name}", 
+                    callback_data=f"select_cat_{category.name}"
+                )])
+        
+        # Добавляем кнопки управления
+        keyboard.append([InlineKeyboardButton("➕ Создать новую категорию", callback_data="create_new_category")])
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="select_cancel")])
+        
+        return InlineKeyboardMarkup(keyboard)
+    
+    def _create_subcategory_keyboard(self, subcategories: list, suggested_subcategory: str = None) -> InlineKeyboardMarkup:
+        """Создать клавиатуру для выбора подкатегорий"""
+        keyboard = []
+        
+        # Кнопка пропуска подкатегории
+        keyboard.append([InlineKeyboardButton("⏭️ Пропустить подкатегорию", callback_data="subcat_skip")])
+        
+        # Предлагаемая подкатегория
+        if suggested_subcategory:
+            keyboard.append([InlineKeyboardButton(
+                f"✅ {suggested_subcategory} (предлагается)", 
+                callback_data=f"select_subcat_{suggested_subcategory}"
+            )])
+        
+        # Существующие подкатегории
+        for subcategory in subcategories:
+            if not suggested_subcategory or subcategory.name != suggested_subcategory:
+                emoji = self._get_emoji_with_fallback(subcategory, "📂")
+                keyboard.append([InlineKeyboardButton(
+                    f"{emoji} {subcategory.name}", 
+                    callback_data=f"select_subcat_{subcategory.name}"
+                )])
+        
+        # Добавляем кнопки управления
+        keyboard.append([InlineKeyboardButton("➕ Создать новую подкатегорию", callback_data="create_new_subcategory")])
+        keyboard.append([InlineKeyboardButton("🔙 Назад к категориям", callback_data="subcat_back")])
+        
+        return InlineKeyboardMarkup(keyboard)
+    
+    def _create_emoji_keyboard(self, suggested_emoji: str, category_name: str, 
+                             callback_prefix: str = "emoji_select") -> InlineKeyboardMarkup:
+        """Создать клавиатуру для выбора смайликов"""
+        emoji_service = EmojiService()
+        keyboard = []
+        
+        # Первая кнопка - рекомендуемый смайлик
+        keyboard.append([InlineKeyboardButton(
+            f"✅ {suggested_emoji} (рекомендуется)", 
+            callback_data=f"{callback_prefix}_{suggested_emoji}"
+        )])
+        
+        # Получаем клавиатуру смайликов для категории
+        emoji_keyboard = emoji_service.get_emoji_keyboard_for_category(category_name)
+        
+        # Добавляем смайлики в клавиатуру
+        for emoji_row in emoji_keyboard:
+            button_row = []
+            for emoji in emoji_row:
+                if emoji != suggested_emoji:
+                    button_row.append(InlineKeyboardButton(
+                        emoji, 
+                        callback_data=f"{callback_prefix}_{emoji}"
+                    ))
+            if button_row:
+                keyboard.append(button_row)
+        
+        # Кнопки управления
+        more_callback = "more_emojis" if callback_prefix == "emoji_select" else "subcat_more_emojis"
+        default_callback = f"{callback_prefix}_📁" if callback_prefix == "emoji_select" else f"{callback_prefix}_📂"
+        back_callback = "back_to_name" if callback_prefix == "emoji_select" else "subcat_back_to_name"
+        
+        keyboard.append([
+            InlineKeyboardButton("📂 Больше смайликов", callback_data=more_callback),
+            InlineKeyboardButton("📁 По умолчанию", callback_data=default_callback)
+        ])
+        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data=back_callback)])
+        
+        return InlineKeyboardMarkup(keyboard)
+    
+    async def _create_and_process_transaction(self, transaction_data: dict, category: Category, 
+                                            subcategory: Subcategory = None, db=None) -> tuple:
+        """Создать транзакцию и обработать её"""
+        # Создаем транзакцию
+        transaction = Transaction(
+            user_id=transaction_data['user_id'],
+            amount=transaction_data['amount'] if transaction_data['is_income'] else -transaction_data['amount'],
+            currency=transaction_data['currency'],
+            description=transaction_data['description'],
+            category_id=category.id,
+            subcategory_id=subcategory.id if subcategory else None,
+            created_at=datetime.now()
+        )
+        
+        db.add(transaction)
+        db.commit()
+        
+        # Обновляем баланс для расходов
+        balance = None
+        if not transaction_data['is_income']:
+            balance = self.balance_service.subtract_expense(
+                transaction_data['user_id'], 
+                transaction_data['amount'], 
+                transaction_data['currency']
+            )
+        
+        # Запоминаем связь описания с категорией для будущих предложений
+        self.memory_service.remember_category(
+            user_id=transaction_data['user_id'],
+            description=transaction_data['description'],
+            category_id=category.id,
+            confidence=1.0  # Максимальная уверенность для ручного выбора
+        )
+        
+        # Проверка лимитов для расходов
+        warning_msg = ""
+        limit_exceeded = False
+        limit_info = ""
+        if not transaction_data['is_income']:
+            warning_msg, limit_exceeded = await self._check_limits(
+                transaction_data['user_id'], 
+                category.id, 
+                abs(transaction_data['amount']), 
+                transaction_data['currency'], 
+                db
+            )
+            
+            # Получаем информацию о лимите для отображения
+            limit_info = await self._get_limit_info(
+                transaction_data['user_id'], 
+                category.id, 
+                transaction_data['currency'], 
+                db
+            )
+        
+        return balance, warning_msg, limit_exceeded, limit_info
+    
+    def _format_transaction_response(self, transaction_data: dict, category: Category, 
+                                   subcategory: Subcategory, user: User, balance=None, 
+                                   limit_info: str = "", new_category: bool = False) -> str:
+        """Форматировать ответ о транзакции"""
+        # Персонализированное сообщение
+        name = user.name or "бро"
+        operation_type = get_message("income_added", user.language) if transaction_data['is_income'] else get_message("expense_added", user.language)
+        
+        category_emoji = self._get_emoji_with_fallback(category)
+        category_text = f"{category_emoji} {category.name}"
+        
+        if subcategory:
+            subcategory_emoji = self._get_emoji_with_fallback(subcategory, "📂")
+            category_text += f" → {subcategory_emoji} {subcategory.name}"
+        
+        # Основное сообщение о транзакции
+        response_text = f"✅ {operation_type}\n\n"
+        
+        if new_category:
+            response_text += f"🆕 Создана новая категория: {category_emoji} {category.name}\n\n"
+        
+        response_text += (
+            f"👤 {name}, транзакция сохранена:\n"
+            f"{get_message('amount', user.language)}: {transaction_data['amount']} {transaction_data['currency']}\n"
+            f"{get_message('category', user.language)}: {category_text}\n"
+            f"{get_message('description', user.language)}: {transaction_data['description']}"
+        )
+        
+        # Добавляем информацию о балансе для расходов
+        if balance:
+            balance_emoji = "💰" if balance.amount >= 0 else "💸"
+            response_text += f"\n\n{balance_emoji} **Общий баланс:** {balance.amount:.2f} {balance.currency}"
+        
+        # Добавляем информацию о лимите
+        if limit_info:
+            response_text += f"\n{limit_info}"
+        
+        return response_text
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка текстовых сообщений для парсинга транзакций с улучшенным UI"""
         # Если ждем ввода названия категории
         if context.user_data.get('waiting_for_category'):
             # Проверяем на отмену
-            if update.message.text.strip().lower() in ['/cancel', 'отмена', 'cancel']:
-                context.user_data.pop('waiting_for_category', None)
-                await update.message.reply_text(
-                    "❌ Добавление категории отменено.",
-                    reply_markup=None
-                )
+            if self._is_cancel_command(update.message.text):
+                await self._handle_cancel_operation(update, context, 'waiting_for_category', 
+                                                   "Добавление категории отменено.")
                 return
             await self.handle_new_category(update, context)
             return
@@ -48,13 +293,10 @@ class EnhancedTransactionHandler:
         # Если ждем ввода лимита
         if context.user_data.get('waiting_for_limit'):
             # Проверяем на отмену
-            if update.message.text.strip().lower() in ['/cancel', 'отмена', 'cancel']:
-                context.user_data.pop('waiting_for_limit', None)
+            if self._is_cancel_command(update.message.text):
+                await self._handle_cancel_operation(update, context, 'waiting_for_limit', 
+                                                   "Установка лимита отменена.")
                 context.user_data.pop('limit_category_id', None)
-                await update.message.reply_text(
-                    "❌ Установка лимита отменена.",
-                    reply_markup=None
-                )
                 return
             await self.handle_new_limit(update, context)
             return
@@ -62,12 +304,9 @@ class EnhancedTransactionHandler:
         # Если редактируем сумму транзакции
         if context.user_data.get('editing_transaction'):
             # Проверяем на отмену
-            if update.message.text.strip().lower() in ['/cancel', 'отмена', 'cancel']:
-                context.user_data.pop('editing_transaction', None)
-                await update.message.reply_text(
-                    "❌ Редактирование транзакции отменено.",
-                    reply_markup=None
-                )
+            if self._is_cancel_command(update.message.text):
+                await self._handle_cancel_operation(update, context, 'editing_transaction', 
+                                                   "Редактирование транзакции отменено.")
                 return
             from handlers.edit_handler import handle_new_amount
             await handle_new_amount(update, context)
@@ -150,13 +389,13 @@ class EnhancedTransactionHandler:
                 
                 # Показываем уведомление о добавлении дохода
                 name = user.name or "бро"
-                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                keyboard = self._get_main_menu_keyboard()
                 await update.message.reply_text(
                     f"✅ {name}, доход добавлен к балансу!\n\n"
                     f"💰 **{description}**\n"
                     f"💵 Сумма: +{amount} {currency}\n"
                     f"💳 Текущий баланс: {balance.amount} {currency}",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    reply_markup=keyboard,
                     parse_mode='Markdown'
                 )
                 return
@@ -211,39 +450,7 @@ class EnhancedTransactionHandler:
     async def _show_category_selection(self, update: Update, suggested_category: str, user, db):
         """Показать диалог выбора категории"""
         categories = db.query(Category).filter(Category.user_id == user.id).all()
-        
-        # Создаем клавиатуру с вариантами категорий
-        keyboard = []
-        
-        # Первой кнопкой идет предлагаемая категория (включая "Прочее")
-        if suggested_category:
-            # Находим предлагаемую категорию и добавляем её первой
-            suggested_cat_obj = None
-            for cat in categories:
-                if cat.name == suggested_category:
-                    suggested_cat_obj = cat
-                    break
-            
-            if suggested_cat_obj:
-                suggested_emoji = suggested_cat_obj.emoji if hasattr(suggested_cat_obj, 'emoji') and suggested_cat_obj.emoji else "📁"
-                keyboard.append([InlineKeyboardButton(
-                    f"✅ {suggested_emoji} {suggested_category} (предлагается)", 
-                    callback_data=f"select_cat_{suggested_category}"
-                )])
-        
-        # Остальные категории
-        for category in categories:
-            if category.name != suggested_category:
-                emoji = category.emoji if hasattr(category, 'emoji') and category.emoji else "📁"
-                keyboard.append([InlineKeyboardButton(
-                    f"{emoji} {category.name}", 
-                    callback_data=f"select_cat_{category.name}"
-                )])
-        
-        # Добавляем кнопку создания новой категории
-        keyboard.append([InlineKeyboardButton("➕ Создать новую категорию", callback_data="create_new_category")])
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="select_cancel")])
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        reply_markup = self._create_category_keyboard(categories, suggested_category)
         
         # Сообщение с предлагаемой категорией
         message_text = (
@@ -312,37 +519,10 @@ class EnhancedTransactionHandler:
         """Показать диалог выбора подкатегории"""
         # Получаем предлагаемую подкатегорию через OpenAI
         suggested_subcategory = await self._suggest_subcategory(description, category.id, user.id, db)
-        
-        # Создаем клавиатуру с вариантами подкатегорий
-        keyboard = []
-        
-        # Кнопка пропуска подкатегории
-        keyboard.append([InlineKeyboardButton("⏭️ Пропустить подкатегорию", callback_data="subcat_skip")])
-        
-        # Предлагаемая подкатегория
-        if suggested_subcategory:
-            keyboard.append([InlineKeyboardButton(
-                f"✅ {suggested_subcategory} (предлагается)", 
-                callback_data=f"select_subcat_{suggested_subcategory}"
-            )])
-        
-        # Существующие подкатегории
-        for subcategory in subcategories:
-            if not suggested_subcategory or subcategory.name != suggested_subcategory:
-                emoji = subcategory.emoji if hasattr(subcategory, 'emoji') and subcategory.emoji else "📂"
-                keyboard.append([InlineKeyboardButton(
-                    f"{emoji} {subcategory.name}", 
-                    callback_data=f"select_subcat_{subcategory.name}"
-                )])
-        
-        # Добавляем кнопку создания новой подкатегории
-        keyboard.append([InlineKeyboardButton("➕ Создать новую подкатегорию", callback_data="create_new_subcategory")])
-        keyboard.append([InlineKeyboardButton("🔙 Назад к категориям", callback_data="subcat_back")])
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        reply_markup = self._create_subcategory_keyboard(subcategories, suggested_subcategory)
         
         # Сообщение с предлагаемой подкатегорией
-        category_emoji = category.emoji if hasattr(category, 'emoji') and category.emoji else "📁"
+        category_emoji = self._get_emoji_with_fallback(category)
         message_text = (
             f"📂 **Выбор подкатегории для {category_emoji} {category.name}**\n\n"
         )
@@ -398,15 +578,7 @@ class EnhancedTransactionHandler:
                 continue
                 
             # Определяем период для расчета
-            if limit.period == 'weekly':
-                # Неделя - последние 7 дней
-                period_start = datetime.now() - timedelta(days=7)
-            elif limit.period == 'custom' and hasattr(limit, 'end_date') and limit.end_date:
-                # Кастомный период - от создания лимита до конечной даты
-                period_start = limit.created_at if hasattr(limit, 'created_at') else datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            else:
-                # Месяц - текущий месяц
-                period_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            period_start, period_text = self._calculate_limit_period(limit)
             
             period_expenses = db.query(Transaction).filter(
                 Transaction.user_id == user_id,
@@ -423,7 +595,6 @@ class EnhancedTransactionHandler:
             
             if total_spent > limit.amount:
                 limit_exceeded = True
-                period_text = "неделю" if limit.period == "weekly" else ("до " + limit.end_date.strftime('%d.%m.%Y') if limit.period == "custom" else "месяц")
                 warning_messages.append(
                     f"🚨 **ПРЕВЫШЕН ЛИМИТ!** 🚨\n"
                     f"Категория: {category.name}\n"
@@ -431,7 +602,6 @@ class EnhancedTransactionHandler:
                     f"Период: {period_text}"
                 )
             elif total_spent > limit.amount * 0.8:  # Предупреждение при 80%
-                period_text = "неделю" if limit.period == "weekly" else ("до " + limit.end_date.strftime('%d.%m.%Y') if limit.period == "custom" else "месяц")
                 warning_messages.append(
                     f"🔔 Приближение к лимиту '{category.name}': "
                     f"{total_spent:.2f}/{limit.amount:.2f} {currency} за {period_text}"
@@ -454,18 +624,7 @@ class EnhancedTransactionHandler:
         
         for limit in limits:
             # Определяем период для расчета
-            if limit.period == 'weekly':
-                # Неделя - последние 7 дней
-                period_start = datetime.now() - timedelta(days=7)
-                period_text = "неделю"
-            elif limit.period == 'custom' and hasattr(limit, 'end_date') and limit.end_date:
-                # Кастомный период - от создания лимита до конечной даты
-                period_start = limit.created_at if hasattr(limit, 'created_at') else datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                period_text = f"до {limit.end_date.strftime('%d.%m.%Y')}"
-            else:
-                # Месяц - текущий месяц
-                period_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                period_text = "месяц"
+            period_start, period_text = self._calculate_limit_period(limit)
             
             # Считаем потраченное
             period_expenses = db.query(Transaction).filter(
@@ -532,39 +691,7 @@ class EnhancedTransactionHandler:
     async def _show_category_selection_from_query(self, query, suggested_category: str, user, db):
         """Показать диалог выбора категории (из callback query)"""
         categories = db.query(Category).filter(Category.user_id == user.id).all()
-        
-        # Создаем клавиатуру с вариантами категорий
-        keyboard = []
-        
-        # Первой кнопкой идет предлагаемая категория (включая "Прочее")
-        if suggested_category:
-            # Находим предлагаемую категорию и добавляем её первой
-            suggested_cat_obj = None
-            for cat in categories:
-                if cat.name == suggested_category:
-                    suggested_cat_obj = cat
-                    break
-            
-            if suggested_cat_obj:
-                suggested_emoji = suggested_cat_obj.emoji if hasattr(suggested_cat_obj, 'emoji') and suggested_cat_obj.emoji else "📁"
-                keyboard.append([InlineKeyboardButton(
-                    f"✅ {suggested_emoji} {suggested_category} (предлагается)", 
-                    callback_data=f"select_cat_{suggested_category}"
-                )])
-        
-        # Остальные категории
-        for category in categories:
-            if category.name != suggested_category:
-                emoji = category.emoji if hasattr(category, 'emoji') and category.emoji else "📁"
-                keyboard.append([InlineKeyboardButton(
-                    f"{emoji} {category.name}", 
-                    callback_data=f"select_cat_{category.name}"
-                )])
-        
-        # Добавляем кнопку создания новой категории
-        keyboard.append([InlineKeyboardButton("➕ Создать новую категорию", callback_data="create_new_category")])
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="select_cancel")])
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        reply_markup = self._create_category_keyboard(categories, suggested_category)
         
         # Сообщение с предлагаемой категорией
         message_text = (
@@ -614,7 +741,7 @@ class EnhancedTransactionHandler:
         user_id = update.effective_user.id
         
         # Проверка на отмену
-        if subcategory_name.lower() in ['/cancel', 'отмена', 'cancel']:
+        if self._is_cancel_command(subcategory_name):
             context.user_data.pop('waiting_for_subcategory_name', None)
             
             # Возвращаем к выбору подкатегории
@@ -813,99 +940,28 @@ class EnhancedTransactionHandler:
                     Subcategory.user_id == user.id
                 ).first()
             
-            # Создаем транзакцию
-            transaction = Transaction(
-                user_id=transaction_data['user_id'],
-                amount=transaction_data['amount'] if transaction_data['is_income'] else -transaction_data['amount'],
-                currency=transaction_data['currency'],
-                description=transaction_data['description'],
-                category_id=category.id,
-                subcategory_id=subcategory.id if subcategory else None,
-                created_at=datetime.now()
+            # Создаем и обрабатываем транзакцию
+            balance, warning_msg, limit_exceeded, limit_info = await self._create_and_process_transaction(
+                transaction_data, category, subcategory, db
             )
             
-            db.add(transaction)
-            db.commit()
-            
-            # Обновляем баланс для расходов
-            balance = None
-            if not transaction_data['is_income']:
-                balance = self.balance_service.subtract_expense(
-                    transaction_data['user_id'], 
-                    transaction_data['amount'], 
-                    transaction_data['currency']
-                )
-            
-            # Запоминаем связь описания с категорией для будущих предложений
-            self.memory_service.remember_category(
-                user_id=transaction_data['user_id'],
-                description=transaction_data['description'],
-                category_id=category.id,
-                confidence=1.0  # Максимальная уверенность для ручного выбора
+            # Формируем ответ
+            response_text = self._format_transaction_response(
+                transaction_data, category, subcategory, user, balance, limit_info
             )
-            
-            # Проверка лимитов для расходов
-            warning_msg = ""
-            limit_exceeded = False
-            limit_info = ""
-            if not transaction_data['is_income']:
-                warning_msg, limit_exceeded = await self._check_limits(
-                    transaction_data['user_id'], 
-                    category.id, 
-                    abs(transaction_data['amount']), 
-                    transaction_data['currency'], 
-                    db
-                )
-                
-                # Получаем информацию о лимите для отображения
-                limit_info = await self._get_limit_info(
-                    transaction_data['user_id'], 
-                    category.id, 
-                    transaction_data['currency'], 
-                    db
-                )
-            
-            # Персонализированное сообщение
-            name = user.name or "бро"
-            operation_type = get_message("income_added", user.language) if transaction_data['is_income'] else get_message("expense_added", user.language)
-            
-            category_emoji = category.emoji if hasattr(category, 'emoji') and category.emoji else "📁"
-            category_text = f"{category_emoji} {category.name}"
-            
-            if subcategory:
-                subcategory_emoji = subcategory.emoji if hasattr(subcategory, 'emoji') and subcategory.emoji else "📂"
-                category_text += f" → {subcategory_emoji} {subcategory.name}"
-            
-            # Основное сообщение о транзакции
-            response_text = (
-                f"✅ {operation_type}\n\n"
-                f"👤 {name}, транзакция сохранена:\n"
-                f"{get_message('amount', user.language)}: {transaction_data['amount']} {transaction_data['currency']}\n"
-                f"{get_message('category', user.language)}: {category_text}\n"
-                f"{get_message('description', user.language)}: {transaction_data['description']}"
-            )
-            
-            # Добавляем информацию о балансе для расходов
-            if balance:
-                balance_emoji = "💰" if balance.amount >= 0 else "💸"
-                response_text += f"\n\n{balance_emoji} **Общий баланс:** {balance.amount:.2f} {balance.currency}"
-            
-            # Добавляем информацию о лимите
-            if limit_info:
-                response_text += f"\n{limit_info}"
             
             # Добавляем кнопку "На главную"
-            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            keyboard = self._get_main_menu_keyboard()
             
-            await query.edit_message_text(response_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+            await query.edit_message_text(response_text, parse_mode='Markdown', reply_markup=keyboard)
             
             # Отправляем отдельное заметное сообщение о превышении лимита
             if limit_exceeded:
-                limit_keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                limit_keyboard = self._get_main_menu_keyboard()
                 await query.message.reply_text(
                     warning_msg,
                     parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(limit_keyboard)
+                    reply_markup=limit_keyboard
                 )
             elif warning_msg:  # Предупреждение о приближении к лимиту
                 await query.message.reply_text(warning_msg, parse_mode='Markdown')
@@ -926,12 +982,12 @@ class EnhancedTransactionHandler:
             return
         
         # Проверяем на отмену
-        if text.lower() in ['/cancel', 'отмена', 'cancel']:
+        if self._is_cancel_command(text):
             context.user_data.pop('editing_limit', None)
-            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            keyboard = self._get_main_menu_keyboard()
             await update.message.reply_text(
                 "❌ Редактирование лимита отменено.",
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                reply_markup=keyboard
             )
             return
         
@@ -939,10 +995,10 @@ class EnhancedTransactionHandler:
         try:
             user = db.query(User).filter(User.telegram_id == user_id).first()
             if not user:
-                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                keyboard = self._get_main_menu_keyboard()
                 await update.message.reply_text(
                     "Сначала выполните команду /start",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    reply_markup=keyboard
                 )
                 return
             
@@ -952,10 +1008,10 @@ class EnhancedTransactionHandler:
             ).first()
             
             if not limit:
-                keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                keyboard = self._get_main_menu_keyboard()
                 await update.message.reply_text(
                     "Лимит не найден.",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    reply_markup=keyboard
                 )
                 return
             
@@ -989,7 +1045,7 @@ class EnhancedTransactionHandler:
                     f"✅ **Лимит обновлен!**\n\n"
                     f"Категория: {category.name}\n"
                     f"Новый лимит: {amount} {currency} за {period_text}",
-                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    reply_markup=keyboard,
                     parse_mode='Markdown'
                 )
                 
@@ -1132,12 +1188,12 @@ class EnhancedTransactionHandler:
                 period_text = "неделю" if period == "weekly" else "месяц"
                 period_text = f"за {period_text}"
             
-            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            keyboard = self._get_main_menu_keyboard()
             await update.message.reply_text(
                 f"✅ {name}, лимит установлен!\n\n"
                 f"Категория: {category.name}\n"
                 f"Лимит: {amount} {currency} {period_text}",
-                reply_markup=InlineKeyboardMarkup(keyboard),
+                reply_markup=keyboard,
                 parse_mode='Markdown'
             )
             
@@ -1169,7 +1225,7 @@ class EnhancedTransactionHandler:
         user_id = update.effective_user.id
         
         # Проверка на отмену
-        if category_name.lower() in ['/cancel', 'отмена', 'cancel']:
+        if self._is_cancel_command(category_name):
             context.user_data.pop('waiting_for_category_name', None)
             
             # Возвращаем к выбору категории
@@ -1234,37 +1290,7 @@ class EnhancedTransactionHandler:
         suggested_emoji = emoji_service.get_emoji_by_category_name(category_name)
         
         # Создаем клавиатуру с смайликами
-        keyboard = []
-        
-        # Первая кнопка - рекомендуемый смайлик
-        keyboard.append([InlineKeyboardButton(
-            f"✅ {suggested_emoji} (рекомендуется)", 
-            callback_data=f"emoji_select_{suggested_emoji}"
-        )])
-        
-        # Получаем клавиатуру смайликов для категории
-        emoji_keyboard = emoji_service.get_emoji_keyboard_for_category(category_name)
-        
-        # Добавляем смайлики в клавиатуру
-        for emoji_row in emoji_keyboard:
-            button_row = []
-            for emoji in emoji_row:
-                if emoji != suggested_emoji:  # Не дублируем рекомендуемый
-                    button_row.append(InlineKeyboardButton(
-                        emoji, 
-                        callback_data=f"emoji_select_{emoji}"
-                    ))
-            if button_row:
-                keyboard.append(button_row)
-        
-        # Кнопки управления
-        keyboard.append([
-            InlineKeyboardButton("📂 Больше смайликов", callback_data="more_emojis"),
-            InlineKeyboardButton("📁 По умолчанию", callback_data="emoji_select_📁")
-        ])
-        keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data="back_to_name")])
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        reply_markup = self._create_emoji_keyboard(suggested_emoji, category_name, "emoji_select")
         
         await update.message.reply_text(
             f"😊 **Выбор смайлика для категории '{category_name}'**\n\n"
@@ -1634,91 +1660,28 @@ class EnhancedTransactionHandler:
         try:
             user = db.query(User).filter(User.telegram_id == query.from_user.id).first()
             
-            # Создаем транзакцию
-            transaction = Transaction(
-                user_id=transaction_data['user_id'],
-                amount=transaction_data['amount'] if transaction_data['is_income'] else -transaction_data['amount'],
-                currency=transaction_data['currency'],
-                description=transaction_data['description'],
-                category_id=category.id,
-                created_at=datetime.now()
+            # Создаем и обрабатываем транзакцию
+            balance, warning_msg, limit_exceeded, limit_info = await self._create_and_process_transaction(
+                transaction_data, category, None, db
             )
             
-            db.add(transaction)
-            db.commit()
-            
-            # Обновляем баланс для расходов
-            balance = None
-            if not transaction_data['is_income']:
-                balance = self.balance_service.subtract_expense(
-                    transaction_data['user_id'], 
-                    transaction_data['amount'], 
-                    transaction_data['currency']
-                )
-            
-            # Запоминаем связь описания с категорией для будущих предложений
-            self.memory_service.remember_category(
-                user_id=transaction_data['user_id'],
-                description=transaction_data['description'],
-                category_id=category.id,
-                confidence=1.0  # Максимальная уверенность для ручного выбора
+            # Формируем ответ
+            response_text = self._format_transaction_response(
+                transaction_data, category, None, user, balance, limit_info, new_category=True
             )
-            
-            # Проверка лимитов для расходов
-            warning_msg = ""
-            limit_exceeded = False
-            limit_info = ""
-            if not transaction_data['is_income']:
-                warning_msg, limit_exceeded = await self._check_limits(
-                    transaction_data['user_id'], 
-                    category.id, 
-                    abs(transaction_data['amount']), 
-                    transaction_data['currency'], 
-                    db
-                )
-                
-                # Получаем информацию о лимите для отображения
-                limit_info = await self._get_limit_info(
-                    transaction_data['user_id'], 
-                    category.id, 
-                    transaction_data['currency'], 
-                    db
-                )
-            
-            # Персонализированное сообщение
-            name = user.name or "бро"
-            operation_type = get_message("income_added", user.language) if transaction_data['is_income'] else get_message("expense_added", user.language)
-            
-            response_text = (
-                f"✅ {operation_type}\n\n"
-                f"🆕 Создана новая категория: {category.emoji} {category.name}\n\n"
-                f"👤 {name}, транзакция сохранена:\n"
-                f"{get_message('amount', user.language)}: {transaction_data['amount']} {transaction_data['currency']}\n"
-                f"{get_message('category', user.language)}: {category.emoji} {category.name}\n"
-                f"{get_message('description', user.language)}: {transaction_data['description']}"
-            )
-            
-            # Добавляем информацию о балансе для расходов
-            if balance:
-                balance_emoji = "💰" if balance.amount >= 0 else "💸"
-                response_text += f"\n\n{balance_emoji} **Общий баланс:** {balance.amount:.2f} {balance.currency}"
-            
-            # Добавляем информацию о лимите
-            if limit_info:
-                response_text += f"\n{limit_info}"
             
             # Добавляем кнопку "На главную"
-            keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+            keyboard = self._get_main_menu_keyboard()
             
-            await query.edit_message_text(response_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
+            await query.edit_message_text(response_text, parse_mode='Markdown', reply_markup=keyboard)
             
             # Отправляем отдельное заметное сообщение о превышении лимита
             if limit_exceeded:
-                limit_keyboard = [[InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]]
+                limit_keyboard = self._get_main_menu_keyboard()
                 await query.message.reply_text(
                     warning_msg,
                     parse_mode='Markdown',
-                    reply_markup=InlineKeyboardMarkup(limit_keyboard)
+                    reply_markup=limit_keyboard
                 )
             elif warning_msg:  # Предупреждение о приближении к лимиту
                 await query.message.reply_text(warning_msg, parse_mode='Markdown')
